@@ -1,0 +1,458 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application
+*.log
+logs/
+data/
+documents/
+*.db
+*.h2.db
+
+# Environment
+.env
+.env.local
+application-local.properties
+
+# Compiled
+*.class
+out/
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Test
+test-results/
+test-output/
+
+# Other
+.settings/
+bin/
+tmp/
+temp/
+# Company FAQ - General Questions
+
+**Version:** 1.0
+**Last Updated:** November 2025
+
+---
+
+## Getting Started
+
+### Q: What should I do on my first day?
+
+**A:** On your first day:
+1. Arrive at 9:00 AM and check in with reception
+2. Meet with your manager for onboarding
+3. Complete HR paperwork (tax forms, benefits enrollment)
+4. Pick up your laptop and equipment from IT
+5. Set up your accounts (email, Slack, VPN)
+6. Attend new hire orientation (usually 10:00 AM - 12:00 PM)
+7. Join your team for welcome lunch
+
+You'll receive a detailed first-day agenda via email the day before.
+
+### Q: How do I access company systems?
+
+**A:** You'll need:
+- **Email**: username@company.com (set up on day 1)
+- **VPN**: Required for remote access - download Cisco AnyConnect
+- **Slack**: Join company workspace - check your welcome email for invite
+- **Google Workspace**: For docs, sheets, calendar
+- **JIRA**: Project management (if applicable to your role)
+- **GitHub**: Code repositories (for engineering)
+
+IT will provide login credentials on your first day.
+
+### Q: Where can I find company policies?
+
+**A:** All policies are available at:
+- Internal portal: https://portal.company.com/policies
+- HR shared drive: Policies & Procedures folder
+- You can also ask this AI copilot for policy questions!
+
+---
+
+## Time Off and Leave
+
+### Q: How do I request time off?
+
+**A:** To request PTO:
+1. Check team calendar for conflicts
+2. Discuss with your manager
+3. Submit request in BambooHR (https://company.bamboohr.com)
+4. Wait for manager approval
+5. Add to team calendar once approved
+
+Requests should be submitted at least 2 weeks in advance for 1-5 days, and 4 weeks in advance for longer periods.
+
+### Q: What holidays does the company observe?
+
+**A:** Company holidays (US):
+- New Year's Day
+- Martin Luther King Jr. Day
+- Presidents' Day
+- Memorial Day
+- Independence Day
+- Labor Day
+- Thanksgiving (Thursday and Friday)
+- Christmas Eve and Christmas Day
+
+Total: 10 days
+
+International offices follow local holidays.
+
+### Q: Can I carry over unused PTO?
+
+**A:** Yes, with limits:
+- Up to **5 days** can be carried over to next year
+- Unused days beyond 5 are lost (use-it-or-lose-it)
+- Must be used by end of Q1 the following year
+- Exceptions require VP approval
+
+### Q: What if I'm sick?
+
+**A:** For sick leave:
+- Notify your manager ASAP (before start of work day if possible)
+- Mark as "Sick" in Slack status
+- No need to provide medical documentation for 1-3 days
+- Medical note required for absences over 3 consecutive days
+- Use sick days (separate from PTO - see HR policy for allowance)
+
+---
+
+## Work Arrangements
+
+### Q: What is the hybrid work schedule?
+
+**A:** Standard hybrid schedule:
+- **In office**: Tuesday, Wednesday, Thursday
+- **Remote**: Monday, Friday
+
+Your team may have variations - check with your manager.
+
+### Q: Can I work from a different city/country temporarily?
+
+**A:** Yes, within limits:
+- **Up to 2 weeks/year**: No approval needed, just inform manager
+- **2 weeks - 3 months**: Manager approval required
+- **Over 3 months**: HR and Legal approval needed
+
+Consider time zones and tax implications for international work.
+
+### Q: What if I need to work different hours?
+
+**A:** We offer flexible hours:
+- Core hours: 10 AM - 3 PM (must be available)
+- Start time: Between 7 AM - 10 AM
+- Must work 40 hours/week (full-time)
+- Coordinate with team for meetings and collaboration
+
+Discuss your preferred schedule with your manager.
+
+---
+
+## Benefits and Compensation
+
+### Q: When do I get paid?
+
+**A:** Payroll schedule:
+- **Frequency**: Bi-weekly (every other Friday)
+- **Method**: Direct deposit (required)
+- **Paystubs**: Available in BambooHR
+
+Set up direct deposit in BambooHR before your first payday.
+
+### Q: When do benefits start?
+
+**A:** Benefits begin:
+- **Health insurance**: First day of employment
+- **401(k)**: First day, contributions start with first paycheck
+- **PTO accrual**: After 90 days (but accrues from day 1)
+- **Stock options**: After 90-day probation
+
+### Q: How do I enroll in benefits?
+
+**A:**
+1. You'll receive an email from HR within first week
+2. Complete enrollment in BambooHR within 30 days
+3. Choose health, dental, vision plans
+4. Set up 401(k) contributions (we match up to 6%!)
+5. Questions? Contact benefits@company.com
+
+### Q: When are performance reviews?
+
+**A:** Annual review cycle:
+- **Self-assessment**: October
+- **Manager review**: November
+- **Review meeting**: December
+- **Salary adjustments**: Effective January 1
+
+You may also have mid-year check-ins (informal).
+
+---
+
+## Expenses and Reimbursement
+
+### Q: How do I submit expenses?
+
+**A:** Expense submission:
+1. Log in to Expensify (https://expensify.com)
+2. Upload receipt photo
+3. Categorize expense (travel, meals, equipment, etc.)
+4. Add business justification
+5. Submit for approval
+6. Reimbursement processed within 2 weeks
+
+Keep receipts for expenses over $25.
+
+### Q: What can I expense?
+
+**A:** Common expensable items:
+- **Travel**: Flights, hotels, ground transport (see policy for limits)
+- **Meals**: During business travel or client meetings
+- **Equipment**: Approved work-related equipment
+- **Training**: Job-related courses and certifications
+- **Internet**: $50/month if working remotely full-time
+- **Phone**: $75/month if required for work
+
+Always get pre-approval for expenses over $500.
+
+### Q: How long do I have to submit expenses?
+
+**A:** Expense deadlines:
+- Submit within **30 days** of purchase
+- End-of-year expenses: Must submit by January 15
+- Late submissions may not be reimbursed (requires VP approval)
+
+---
+
+## Office and Facilities
+
+### Q: Is there parking available?
+
+**A:** Parking:
+- **Main office**: Free parking in company lot (badge required)
+- **Downtown office**: Subsidized parking - $50/month (market rate: $200)
+- **Alternative**: Bike racks available, $100/month transit subsidy
+
+Contact facilities@company.com for parking pass.
+
+### Q: Is there free food?
+
+**A:** Office amenities:
+- **Coffee/tea**: Free all day
+- **Snacks**: Stocked kitchens on each floor
+- **Lunch**: Catered on Wednesdays
+- **Drinks**: Complimentary beverages
+
+### Q: Can I bring guests to the office?
+
+**A:** Visitor policy:
+- Personal guests: Notify reception 24 hours in advance
+- Client/business guests: Book meeting room, notify reception
+- All guests must sign in and wear visitor badge
+- You're responsible for your guests at all times
+
+---
+
+## Technology and Equipment
+
+### Q: What equipment will I receive?
+
+**A:** Standard equipment:
+- **Laptop**: MacBook Pro or ThinkPad (based on role)
+- **Monitor**: 27" display (request additional if needed)
+- **Keyboard & mouse**: Standard or request ergonomic
+- **Headphones**: Sony or Bose (up to $300)
+- **Other**: Standing desk converter, webcam if needed
+
+### Q: Can I use my personal laptop for work?
+
+**A:** Personal device policy:
+- Company laptops are strongly preferred
+- BYOD allowed with:
+  - IT approval
+  - MDM enrollment
+  - Encryption enabled
+  - Regular security updates
+- Some systems require company device
+
+### Q: Who do I contact for IT issues?
+
+**A:** IT Support:
+- **Help desk**: helpdesk@company.com or +1-555-4357
+- **Slack**: #it-help channel
+- **Portal**: https://help.company.com
+- **Emergency**: Page on-call (for critical systems only)
+
+Response time: 4 hours for normal priority, 1 hour for high priority.
+
+---
+
+## Development and Growth
+
+### Q: What learning resources are available?
+
+**A:** Learning benefits:
+- **Udemy Business**: Full access to all courses
+- **O'Reilly**: Books and videos
+- **Coursera**: Professional certificates
+- **LinkedIn Learning**: Included
+- **Budget**: $2,000/year for external training
+- **Conferences**: $1,500/year
+
+### Q: Can I attend conferences?
+
+**A:** Conference attendance:
+- Get manager approval first
+- Submit expenses according to policy
+- Share learnings with team (presentation or doc)
+- Popular conferences: QCon, AWS re:Invent, Google I/O, etc.
+
+### Q: Are there internal training programs?
+
+**A:** Internal programs:
+- **New hire bootcamp**: First 2 weeks
+- **Leadership training**: For managers
+- **Tech talks**: Weekly presentations by engineers
+- **Lunch & Learn**: Monthly sessions
+- **Mentorship program**: Ask HR to be matched
+
+---
+
+## Communication and Collaboration
+
+### Q: What tools do we use for communication?
+
+**A:** Communication tools:
+- **Email**: For formal communication, external contacts
+- **Slack**: Primary tool for team communication
+- **Zoom**: Video calls and meetings
+- **Google Meet**: Alternative for external calls
+- **JIRA**: Project tracking
+- **Confluence**: Documentation
+
+### Q: What are the Slack channel naming conventions?
+
+**A:** Slack channels:
+- **#team-[name]**: Team channels (e.g., #team-engineering)
+- **#proj-[name]**: Project channels
+- **#location-[city]**: Office-specific channels
+- **#interest-[topic]**: Social/interest groups
+- **#help-[topic]**: Get help (e.g., #help-hr, #help-it)
+
+### Q: How do I schedule meetings?
+
+**A:** Meeting guidelines:
+- Use Google Calendar
+- Check participants' calendars for availability
+- Send invite at least 24 hours in advance
+- Include agenda in description
+- Add Zoom link for remote participants
+- Default meeting length: 25 or 50 minutes (not 30/60)
+
+---
+
+## Miscellaneous
+
+### Q: Can I work on side projects?
+
+**A:** Side project policy:
+- Personal projects are allowed
+- Must not:
+  - Compete with company
+  - Use company resources
+  - Interfere with job performance
+  - Violate IP agreements
+- Disclose to manager if there's any question
+- See employment agreement for details
+
+### Q: How do I refer someone for a job?
+
+**A:** Employee referrals:
+1. Check open positions: https://company.com/careers
+2. Submit referral in BambooHR or email recruiting@company.com
+3. Referral bonus: $2,500 if hired and stays 6 months
+4. You can refer multiple candidates
+
+### Q: What's the dress code?
+
+**A:** Dress code:
+- **Default**: Business casual
+- **Fridays**: Casual (jeans OK)
+- **Client meetings**: Business professional
+- **Remote**: Wear what's comfortable (but camera-ready for calls)
+
+No offensive graphics or text on clothing.
+
+### Q: Is there a gym or fitness benefit?
+
+**A:** Fitness benefits:
+- **Gym membership**: $50/month reimbursement
+- **On-site gym**: Available at main office (free)
+- **Fitness classes**: Weekly yoga on Thursdays
+- **Standing desks**: Available upon request
+
+Submit gym membership receipts monthly for reimbursement.
+
+---
+
+## Emergency Contacts
+
+### Q: Who do I contact in an emergency?
+
+**A:** Emergency contacts:
+- **Office emergency**: 911, then notify security@company.com
+- **IT security emergency**: security@company.com or +1-555-SECURE
+- **HR urgent matters**: hr@company.com or +1-555-0100
+- **Facilities emergency**: facilities@company.com
+
+### Q: What's the office evacuation procedure?
+
+**A:** In case of evacuation:
+1. Leave immediately when alarm sounds
+2. Do not use elevators
+3. Follow exit signs to nearest stairwell
+4. Assembly point: Parking lot (north side)
+5. Check in with your manager
+6. Do not re-enter until all-clear is given
+
+---
+
+## Still Have Questions?
+
+**HR Team**: hr@company.com
+**People Portal**: https://portal.company.com
+**Slack**: #ask-hr
+**AI Copilot**: Right here! Ask me anything about company policies.
+
+---
+
+**Last Updated:** November 2025
+**Maintained by:** People Operations Team
+

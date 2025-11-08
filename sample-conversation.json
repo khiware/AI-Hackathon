@@ -1,0 +1,265 @@
+{
+  "conversation": {
+    "id": "conv_2025_11_08_001",
+    "title": "Employee Policy Questions - Complete Conversation Flow",
+    "timestamp": "2025-11-08T10:30:00Z",
+    "exchanges": [
+      {
+        "turn": 1,
+        "request": {
+          "question": "How many PTO days do full-time US employees get?",
+          "conversationId": "conv_2025_11_08_001",
+          "context": null
+        },
+        "response": {
+          "answer": "Full-time employees in the United States are entitled to 20 days of paid time off per year, plus 10 sick days and 5 personal days. PTO accrues on a monthly basis at 1.67 days per month, and new employees must wait 90 days before using accrued PTO.",
+          "citations": [
+            {
+              "documentId": "hr-pol-001",
+              "fileName": "HR_Policy_v3.1.md",
+              "version": "3.1",
+              "pageNumber": null,
+              "section": "1.1 Full-Time Employees - United States",
+              "startLine": 14,
+              "endLine": 18,
+              "snippet": "Full-time employees in the United States are entitled to: - 20 days of paid time off per year - 10 sick days per year - 5 personal days per year",
+              "relevanceScore": 0.95
+            }
+          ],
+          "confidence": 0.95,
+          "cached": false,
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "responseTimeMs": 1456,
+          "modelUsed": "openai-gpt4",
+          "piiRedacted": false
+        }
+      },
+      {
+        "turn": 2,
+        "request": {
+          "question": "Can contractors in Germany expense laptops?",
+          "conversationId": "conv_2025_11_08_001",
+          "context": null
+        },
+        "response": {
+          "answer": "Yes, contractors in Germany can expense laptops up to €800. However, they must get pre-approval from procurement before making the purchase.",
+          "citations": [
+            {
+              "documentId": "hr-pol-001",
+              "fileName": "HR_Policy_v3.1.md",
+              "version": "3.1",
+              "pageNumber": null,
+              "section": "3.2 Equipment Expenses - Contractors",
+              "startLine": 92,
+              "endLine": 95,
+              "snippet": "Contractors: - Laptop: Up to €800 (Germany), £700 (UK), $1,000 (US) - Must get pre-approval from procurement",
+              "relevanceScore": 0.92
+            }
+          ],
+          "confidence": 0.92,
+          "cached": false,
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "responseTimeMs": 1234,
+          "modelUsed": "openai-gpt4",
+          "piiRedacted": false
+        }
+      },
+      {
+        "turn": 3,
+        "request": {
+          "question": "What's the password policy?",
+          "conversationId": "conv_2025_11_08_001",
+          "context": null
+        },
+        "response": {
+          "answer": null,
+          "citations": [],
+          "confidence": null,
+          "cached": false,
+          "needsClarification": true,
+          "clarificationQuestion": "I found information about 'password policy', but I need more context. Are you asking about:\n1. Password requirements (length, complexity)\n2. Password expiration rules\n3. Password managers\n4. Multi-factor authentication\n\nPlease specify which aspect you're interested in.",
+          "responseTimeMs": 345,
+          "modelUsed": null,
+          "piiRedacted": false
+        }
+      },
+      {
+        "turn": 4,
+        "request": {
+          "question": "Password requirements - length and complexity",
+          "conversationId": "conv_2025_11_08_001",
+          "context": "Clarification provided for previous question"
+        },
+        "response": {
+          "answer": "All employees must follow these password requirements: minimum length of 12 characters, must include uppercase, lowercase, numbers, and special characters. Passwords cannot contain your username, common words, or the company name. Additionally, passwords must be changed every 90 days and you cannot reuse your last 5 passwords.",
+          "citations": [
+            {
+              "documentId": "it-sec-002",
+              "fileName": "IT_Security_Policy_v2.5.md",
+              "version": "2.5",
+              "pageNumber": null,
+              "section": "1.1 Password Requirements",
+              "startLine": 12,
+              "endLine": 20,
+              "snippet": "All employees must follow these password requirements: - Minimum length: 12 characters - Must include: uppercase, lowercase, numbers, and special characters - Cannot contain: username, common words, or company name - Must be changed every 90 days - Cannot reuse last 5 passwords",
+              "relevanceScore": 0.97
+            }
+          ],
+          "confidence": 0.97,
+          "cached": false,
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "responseTimeMs": 1567,
+          "modelUsed": "openai-gpt4",
+          "piiRedacted": false
+        }
+      },
+      {
+        "turn": 5,
+        "request": {
+          "question": "How many PTO days do full-time US employees get?",
+          "conversationId": "conv_2025_11_08_001",
+          "context": "Repeated question to test caching"
+        },
+        "response": {
+          "answer": "Full-time employees in the United States are entitled to 20 days of paid time off per year, plus 10 sick days and 5 personal days. PTO accrues on a monthly basis at 1.67 days per month, and new employees must wait 90 days before using accrued PTO.",
+          "citations": [
+            {
+              "documentId": "hr-pol-001",
+              "fileName": "HR_Policy_v3.1.md",
+              "version": "3.1",
+              "pageNumber": null,
+              "section": "1.1 Full-Time Employees - United States",
+              "startLine": 14,
+              "endLine": 18,
+              "snippet": "Full-time employees in the United States are entitled to: - 20 days of paid time off per year - 10 sick days per year - 5 personal days per year",
+              "relevanceScore": 0.95
+            }
+          ],
+          "confidence": 0.95,
+          "cached": true,
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "responseTimeMs": 47,
+          "modelUsed": "cached",
+          "piiRedacted": false
+        },
+        "note": "Same question as turn 1 - served from cache with 97% faster response time (47ms vs 1456ms)"
+      },
+      {
+        "turn": 6,
+        "request": {
+          "question": "Contact me at john.doe@example.com about remote work policy",
+          "conversationId": "conv_2025_11_08_001",
+          "context": "Question with PII to test redaction"
+        },
+        "response": {
+          "answer": "Employees may request full-time remote work if they have been with the company for at least 6 months, their role is suitable for remote work, their manager approves the request, and they are located in a country where the company has legal presence. For international remote work, employees can work from another country for up to 2 weeks per year without special approval, up to 3 months with manager approval, and more than 3 months requires HR and legal approval.",
+          "citations": [
+            {
+              "documentId": "hr-pol-001",
+              "fileName": "HR_Policy_v3.1.md",
+              "version": "3.1",
+              "pageNumber": null,
+              "section": "2. Remote Work Policy",
+              "startLine": 58,
+              "endLine": 77,
+              "snippet": "Employees may request full-time remote work if: - They have been with the company for at least 6 months - Their role is suitable for remote work - Their manager approves the request...",
+              "relevanceScore": 0.89
+            }
+          ],
+          "confidence": 0.89,
+          "cached": false,
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "responseTimeMs": 1389,
+          "modelUsed": "openai-gpt4",
+          "piiRedacted": true
+        },
+        "note": "Email address was automatically redacted from input before processing"
+      },
+      {
+        "turn": 7,
+        "request": {
+          "question": "What is the company's policy on cryptocurrency mining?",
+          "conversationId": "conv_2025_11_08_001",
+          "context": "Question about topic not in documents"
+        },
+        "response": {
+          "answer": "I couldn't find a clear policy on this. Please check with HR or submit a ticket.",
+          "citations": [],
+          "confidence": 0.0,
+          "cached": false,
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "responseTimeMs": 234,
+          "modelUsed": "openai-gpt4",
+          "piiRedacted": false
+        },
+        "note": "No relevant documents found - system correctly declines to answer rather than hallucinating"
+      },
+      {
+        "turn": 8,
+        "request": {
+          "question": "What training budget do I have?",
+          "conversationId": "conv_2025_11_08_001",
+          "context": null
+        },
+        "response": {
+          "answer": "Employees have a training and development budget that includes: up to $2,000 per year for professional courses, up to $1,500 per year for conference tickets, and up to $500 per year for books and learning materials. All training must be job-related and pre-approved by your manager.",
+          "citations": [
+            {
+              "documentId": "hr-pol-001",
+              "fileName": "HR_Policy_v3.1.md",
+              "version": "3.1",
+              "pageNumber": null,
+              "section": "3.3 Training and Development",
+              "startLine": 102,
+              "endLine": 107,
+              "snippet": "Employees can expense: - Professional courses: Up to $2,000/year - Conference tickets: Up to $1,500/year - Books and learning materials: Up to $500/year",
+              "relevanceScore": 0.94
+            }
+          ],
+          "confidence": 0.94,
+          "cached": false,
+          "needsClarification": false,
+          "clarificationQuestion": null,
+          "responseTimeMs": 1123,
+          "modelUsed": "openai-gpt4",
+          "piiRedacted": false
+        }
+      }
+    ],
+    "summary": {
+      "totalTurns": 8,
+      "questionsAnswered": 6,
+      "clarificationsAsked": 1,
+      "noAnswerFound": 1,
+      "cacheHits": 1,
+      "piiRedactions": 1,
+      "averageResponseTime": 792.875,
+      "averageConfidence": 0.803,
+      "documentsUsed": 2,
+      "modelsUsed": ["openai-gpt4", "cached"]
+    }
+  },
+  "metadata": {
+    "applicationVersion": "1.0.0",
+    "conversationFormat": "AskBit.AI JSON Conversation Log",
+    "createdAt": "2025-11-08T10:30:00Z",
+    "purpose": "Demonstration of complete conversation flow with all features",
+    "features_demonstrated": [
+      "Direct question answering with citations",
+      "Clarification loop for ambiguous questions",
+      "Caching for repeated questions",
+      "PII redaction",
+      "No-answer-found handling (no hallucination)",
+      "Multi-document retrieval",
+      "Confidence scoring",
+      "Response time tracking"
+    ]
+  }
+}
+
