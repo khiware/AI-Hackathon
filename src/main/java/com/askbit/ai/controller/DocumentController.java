@@ -69,10 +69,10 @@ public class DocumentController {
         }
     }
 
-    @DeleteMapping("/{documentId}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable String documentId) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDocument(@PathVariable String id) {
         try {
-            documentProcessingService.deleteDocument(documentId);
+            documentProcessingService.deleteDocument(Long.parseLong(id));
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

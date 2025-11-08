@@ -122,15 +122,15 @@ public class DocumentProcessingService {
         try {
             if (fileType.equalsIgnoreCase("pdf")) {
                 // PDF processing saves chunks internally, returns dummy list
-                chunks = processPdfDocument(filePath.toFile(), documentId);
+                chunks = processPdfDocument(filePath.toFile(), document);
                 pageCount = getPageCountFromPdf(filePath.toFile());
                 // Don't save chunks again - already saved in processPdfDocument!
             } else if (fileType.equalsIgnoreCase("docx") || fileType.equalsIgnoreCase("doc")) {
-                chunks = processDocxDocument(filePath.toFile(), documentId);
+                chunks = processDocxDocument(filePath.toFile(), document);
                 // Save chunks for non-PDF documents
                 documentChunkRepository.saveAll(chunks);
             } else if (fileType.equalsIgnoreCase("md") || fileType.equalsIgnoreCase("txt")) {
-                chunks = processTextDocument(filePath.toFile(), documentId);
+                chunks = processTextDocument(filePath.toFile(), document);
                 // Save chunks for non-PDF documents
                 documentChunkRepository.saveAll(chunks);
             } else {
@@ -179,9 +179,10 @@ public class DocumentProcessingService {
      * MEMORY-OPTIMIZED: Process PDF page-by-page with immediate saves
      * Prevents OutOfMemoryError by not accumulating all chunks in memory
      */
-    private List<DocumentChunk> processPdfDocument(File file, String documentId) throws IOException {
+    private List<DocumentChunk> processPdfDocument(File file, Document document) throws IOException {
         int totalChunksCreated = 0;
         int globalChunkIndex = 0; // Global counter to ensure unique chunk_index across all pages
+        String documentId = document.getDocumentId();
 
         try (PDDocument pdfDocument = org.apache.pdfbox.Loader.loadPDF(file)) {
             PDFTextStripper stripper = new PDFTextStripper();
@@ -200,7 +201,7 @@ public class DocumentProcessingService {
                 log.debug("Page {} extracted, text length: {} characters", pageNum, pageText.length());
 
                 // Create chunks for THIS page only - pass global counter
-                List<DocumentChunk> pageChunks = createChunksFromText(pageText, documentId, pageNum, globalChunkIndex);
+                List<DocumentChunk> pageChunks = createChunksFromText(pageText, document, pageNum, globalChunkIndex);
 
                 log.debug("Page {} created {} chunks", pageNum, pageChunks.size());
 
@@ -255,30 +256,30 @@ public class DocumentProcessingService {
         return result;
     }
 
-    private List<DocumentChunk> processDocxDocument(File file, String documentId) throws IOException {
+    private List<DocumentChunk> processDocxDocument(File file, Document document) throws IOException {
         List<DocumentChunk> chunks = new ArrayList<>();
 
         try (FileInputStream fis = new FileInputStream(file);
-             XWPFDocument document = new XWPFDocument(fis)) {
+             XWPFDocument xwpfDocument = new XWPFDocument(fis)) {
 
             StringBuilder contentBuilder = new StringBuilder();
-            List<XWPFParagraph> paragraphs = document.getParagraphs();
+            List<XWPFParagraph> paragraphs = xwpfDocument.getParagraphs();
 
             for (XWPFParagraph paragraph : paragraphs) {
                 contentBuilder.append(paragraph.getText()).append("\n");
             }
 
-            chunks = createChunksFromText(contentBuilder.toString(), documentId, null, 0);
-            chunks = validateChunks(chunks, documentId);
+            chunks = createChunksFromText(contentBuilder.toString(), document, null, 0);
+            chunks = validateChunks(chunks, document.getDocumentId());
         }
 
         return chunks;
     }
 
-    private List<DocumentChunk> processTextDocument(File file, String documentId) throws IOException {
+    private List<DocumentChunk> processTextDocument(File file, Document document) throws IOException {
         String content = Files.readString(file.toPath());
-        List<DocumentChunk> chunks = createChunksFromText(content, documentId, null, 0);
-        return validateChunks(chunks, documentId);
+        List<DocumentChunk> chunks = createChunksFromText(content, document, null, 0);
+        return validateChunks(chunks, document.getDocumentId());
     }
 
     /**
@@ -287,7 +288,7 @@ public class DocumentProcessingService {
      * FIXED: Prevents infinite loop on small pages
      * FIXED: Uses startingChunkIndex to prevent duplicate chunk_index across pages
      */
-    private List<DocumentChunk> createChunksFromText(String text, String documentId, Integer pageNumber, int startingChunkIndex) {
+    private List<DocumentChunk> createChunksFromText(String text, Document document, Integer pageNumber, int startingChunkIndex) {
         List<DocumentChunk> chunks = new ArrayList<>();
 
         if (text == null || text.trim().isEmpty()) {
@@ -392,7 +393,8 @@ public class DocumentProcessingService {
             List<Double> embedding = i < embeddings.size() ? embeddings.get(i) : new ArrayList<>();
 
             DocumentChunk chunk = DocumentChunk.builder()
-                    .documentId(documentId)
+                    .document(document)
+                    .documentId(document.getDocumentId())
                     .chunkIndex(startingChunkIndex + i) // Use global counter to prevent duplicates
                     .content(chunkTexts.get(i))
                     .pageNumber(pageNumber)
@@ -497,16 +499,21 @@ public class DocumentProcessingService {
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
     }
 
+    public Document getDocument(Long id) {
+        return documentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + id));
+    }
+
     @Transactional
-    public void deleteDocument(String documentId) {
-        Document document = getDocument(documentId);
+    public void deleteDocument(Long id) {
+        Document document = getDocument(id);
         document.setActive(false);
         documentRepository.save(document);
 
         // Delete chunks
-        documentChunkRepository.deleteByDocumentId(documentId);
+        documentChunkRepository.deleteByDocumentId(document.getDocumentId());
 
-        log.info("Document deleted: {}", documentId);
+        log.info("Document deleted: {}", id);
     }
 
     /**
