@@ -13,21 +13,32 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * ENHANCED QuestionAnsweringService with HybridRetrievalService Integration
+ *
+ * This is an example of how to integrate HybridRetrievalService into the existing
+ * QuestionAnsweringService. You can replace the existing service or add this as
+ * a feature flag option.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class QuestionAnsweringService {
+public class EnhancedQuestionAnsweringService {
 
-    private final RetrievalService retrievalService;
+    // Option 1: Use HybridRetrievalService only
     private final HybridRetrievalService hybridRetrievalService;
+
+    // Option 2: Keep both and use feature flag (recommended)
+    private final RetrievalService retrievalService;
+
     private final DocumentRepository documentRepository;
     private final ModelRouterService modelRouterService;
     private final PiiRedactionService piiRedactionService;
@@ -89,14 +100,16 @@ public class QuestionAnsweringService {
                     .build();
         }
 
-        // Retrieve relevant document chunks using Hybrid Search
+        // === HYBRID SEARCH INTEGRATION ===
         List<Citation> citations;
 
         if (useHybridSearch) {
-            log.info("Using hybrid search (vector + keyword) for retrieval");
+            // Use hybrid search (vector + keyword)
+            log.info("Using hybrid search for retrieval");
             citations = performHybridRetrieval(question);
         } else {
-            log.info("Using traditional vector-only search for retrieval");
+            // Use traditional vector-only search
+            log.info("Using traditional vector search");
             citations = retrievalService.retrieveRelevantChunks(question);
         }
 
@@ -145,6 +158,66 @@ public class QuestionAnsweringService {
         return response;
     }
 
+    /**
+     * Perform hybrid retrieval and convert to citations
+     */
+    private List<Citation> performHybridRetrieval(String question) {
+        // Use hybrid search
+        List<DocumentChunk> chunks = hybridRetrievalService.hybridSearch(
+                question,
+                maxRetrievalResults
+        );
+
+        // Convert chunks to citations
+        return chunks.stream()
+                .map(this::convertChunkToCitation)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Convert DocumentChunk to Citation
+     */
+    private Citation convertChunkToCitation(DocumentChunk chunk) {
+        // Get document metadata
+        Document document = documentRepository
+                .findByDocumentId(chunk.getDocumentId())
+                .orElse(null);
+
+        Citation.CitationBuilder builder = Citation.builder()
+                .documentId(chunk.getDocumentId())
+                .pageNumber(chunk.getPageNumber())
+                .section(chunk.getSection())
+                .startLine(chunk.getStartLine())
+                .endLine(chunk.getEndLine())
+                .snippet(chunk.getContent())
+                .relevanceScore(0.85); // Hybrid search uses internal scoring
+
+        if (document != null) {
+            builder.fileName(document.getFileName())
+                    .version(document.getVersion());
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Build context string from citations
+     */
+    private String buildContextFromCitations(List<Citation> citations) {
+        StringBuilder context = new StringBuilder();
+
+        for (int i = 0; i < citations.size(); i++) {
+            Citation citation = citations.get(i);
+            context.append(String.format("[Document %d: %s, Page %d]\n%s\n\n",
+                    i + 1,
+                    citation.getFileName() != null ? citation.getFileName() : "Unknown",
+                    citation.getPageNumber() != null ? citation.getPageNumber() : 0,
+                    citation.getSnippet()));
+        }
+
+        return context.toString();
+    }
+
     private String buildPrompt(String question, String context) {
         return String.format("""
                 You are AskBit.AI, an internal policy assistant for employees.
@@ -168,66 +241,6 @@ public class QuestionAnsweringService {
                 """, context, question);
     }
 
-    /**
-     * Perform hybrid retrieval (vector + keyword search) and convert to citations
-     */
-    private List<Citation> performHybridRetrieval(String question) {
-        // Use hybrid search to get document chunks
-        List<DocumentChunk> chunks = hybridRetrievalService.hybridSearch(
-                question,
-                maxRetrievalResults
-        );
-
-        // Convert chunks to citations with document metadata
-        return chunks.stream()
-                .map(this::convertChunkToCitation)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Convert DocumentChunk to Citation with document metadata
-     */
-    private Citation convertChunkToCitation(DocumentChunk chunk) {
-        // Get document metadata
-        Document document = documentRepository
-                .findByDocumentId(chunk.getDocumentId())
-                .orElse(null);
-
-        Citation.CitationBuilder builder = Citation.builder()
-                .documentId(chunk.getDocumentId())
-                .pageNumber(chunk.getPageNumber())
-                .section(chunk.getSection())
-                .startLine(chunk.getStartLine())
-                .endLine(chunk.getEndLine())
-                .snippet(chunk.getContent())
-                .relevanceScore(0.85); // Hybrid search provides internal scoring
-
-        if (document != null) {
-            builder.fileName(document.getFileName())
-                    .version(document.getVersion());
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * Build context string from citations (used by both retrieval methods)
-     */
-    private String buildContextFromCitations(List<Citation> citations) {
-        StringBuilder context = new StringBuilder();
-
-        for (int i = 0; i < citations.size(); i++) {
-            Citation citation = citations.get(i);
-            context.append(String.format("[Document %d: %s, Page %d]\n%s\n\n",
-                    i + 1,
-                    citation.getFileName() != null ? citation.getFileName() : "Unknown",
-                    citation.getPageNumber() != null ? citation.getPageNumber() : 0,
-                    citation.getSnippet()));
-        }
-
-        return context.toString();
-    }
-
     private String normalizeQuestion(String question) {
         return question.toLowerCase()
                 .replaceAll("[^a-z0-9\\s]", "")
@@ -235,62 +248,61 @@ public class QuestionAnsweringService {
     }
 
     private double calculateConfidence(List<Citation> citations) {
-        if (citations == null || citations.isEmpty()) {
+        if (citations.isEmpty()) {
             return 0.0;
         }
 
-        double avgRelevance = citations.stream()
-                .mapToDouble(Citation::getRelevanceScore)
+        double avgScore = citations.stream()
+                .mapToDouble(c -> c.getRelevanceScore() != null ? c.getRelevanceScore() : 0.85)
                 .average()
                 .orElse(0.0);
 
-        // Adjust confidence based on number of citations
-        double citationBonus = Math.min(citations.size() * 0.05, 0.15);
-
-        return Math.min(avgRelevance + citationBonus, 1.0);
+        return Math.min(avgScore, 1.0);
     }
 
-    private AskResponse buildCachedResponse(QueryHistory queryHistory, long responseTime) {
+    private AskResponse buildCachedResponse(QueryHistory cached, long responseTime) {
+        List<Citation> citations;
         try {
-            List<Citation> citations = objectMapper.readValue(
-                    queryHistory.getCitationsJson(),
-                    objectMapper.getTypeFactory().constructCollectionType(
-                            List.class, Citation.class));
-
-            return AskResponse.builder()
-                    .answer(queryHistory.getAnswer())
-                    .citations(citations)
-                    .confidence(queryHistory.getConfidence())
-                    .cached(true)
-                    .needsClarification(false)
-                    .responseTimeMs(responseTime)
-                    .modelUsed("cached")
-                    .piiRedacted(queryHistory.getPiiRedacted())
-                    .build();
+            citations = objectMapper.readValue(
+                    cached.getCitationsJson(),
+                    objectMapper.getTypeFactory()
+                            .constructCollectionType(List.class, Citation.class)
+            );
         } catch (JsonProcessingException e) {
-            log.error("Error deserializing citations from cache", e);
-            return buildErrorResponse("Error retrieving cached response");
+            log.error("Failed to parse citations from cached query", e);
+            citations = List.of();
         }
-    }
 
-    private AskResponse buildNoDocumentsFoundResponse(long responseTime) {
         return AskResponse.builder()
-                .answer("I couldn't find a clear policy on this. Please check with HR or submit a ticket.")
-                .citations(List.of())
-                .confidence(0.0)
-                .cached(false)
+                .answer(cached.getAnswer())
+                .citations(citations)
+                .confidence(cached.getConfidence())
+                .cached(true)
                 .needsClarification(false)
                 .responseTimeMs(responseTime)
+                .modelUsed(cached.getModelUsed())
+                .piiRedacted(cached.getPiiRedacted())
                 .build();
     }
 
     private AskResponse buildErrorResponse(String message) {
         return AskResponse.builder()
                 .answer(message)
-                .citations(List.of())
                 .confidence(0.0)
                 .cached(false)
                 .needsClarification(false)
+                .responseTimeMs(0L)
+                .build();
+    }
+
+    private AskResponse buildNoDocumentsFoundResponse(long responseTime) {
+        return AskResponse.builder()
+                .answer("I couldn't find any relevant information in the company documents. " +
+                        "Please contact HR or submit a support ticket for assistance.")
+                .confidence(0.0)
+                .cached(false)
+                .needsClarification(false)
+                .responseTimeMs(responseTime)
                 .build();
     }
 
@@ -309,12 +321,15 @@ public class QuestionAnsweringService {
                     .modelUsed(modelUsed)
                     .citationsJson(citationsJson)
                     .piiRedacted(response.getPiiRedacted())
-                    .clarificationAsked(false)
+                    .clarificationAsked(response.getNeedsClarification())
+                    .queryTime(LocalDateTime.now())
                     .build();
 
             queryHistoryRepository.save(queryHistory);
+            log.info("Query history saved for question: {}", normalizedQuestion);
+
         } catch (JsonProcessingException e) {
-            log.error("Error saving query history", e);
+            log.error("Failed to serialize citations for query history", e);
         }
     }
 }
