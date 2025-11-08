@@ -44,7 +44,11 @@ public class QuestionAnsweringService {
     @Value("${askbit.ai.max-retrieval-results:5}")
     private int maxRetrievalResults;
 
+    /**
+     * Answer a question based on company policy documents.
+     */
     @Transactional
+    @Cacheable(value = "queries", key = "#request.question.toLowerCase().replaceAll('[^a-z0-9\\\\s]', '').trim()")
     public AskResponse answerQuestion(AskRequest request) {
         long startTime = System.currentTimeMillis();
 
@@ -66,16 +70,6 @@ public class QuestionAnsweringService {
 
         // Normalize question for caching
         String normalizedQuestion = normalizeQuestion(question);
-
-        // Check cache first
-        Optional<QueryHistory> cachedQuery = queryHistoryRepository
-                .findByNormalizedQuestion(normalizedQuestion);
-
-        if (cachedQuery.isPresent()) {
-            log.info("Cache hit for question: {}", normalizedQuestion);
-            return buildCachedResponse(cachedQuery.get(),
-                    System.currentTimeMillis() - startTime);
-        }
 
         // Check if question needs clarification
         if (clarificationService.needsClarification(question)) {
@@ -138,7 +132,7 @@ public class QuestionAnsweringService {
                 .piiRedacted(piiRedacted)
                 .build();
 
-        // Save to query history
+        // Save to query history for analytics
         saveQueryHistory(normalizedQuestion, originalQuestion, response,
                 modelResponse.getModelUsed());
 
@@ -228,7 +222,7 @@ public class QuestionAnsweringService {
         return context.toString();
     }
 
-    private String normalizeQuestion(String question) {
+    public String normalizeQuestion(String question) {
         return question.toLowerCase()
                 .replaceAll("[^a-z0-9\\s]", "")
                 .trim();
@@ -250,27 +244,18 @@ public class QuestionAnsweringService {
         return Math.min(avgRelevance + citationBonus, 1.0);
     }
 
-    private AskResponse buildCachedResponse(QueryHistory queryHistory, long responseTime) {
-        try {
-            List<Citation> citations = objectMapper.readValue(
-                    queryHistory.getCitationsJson(),
-                    objectMapper.getTypeFactory().constructCollectionType(
-                            List.class, Citation.class));
-
-            return AskResponse.builder()
-                    .answer(queryHistory.getAnswer())
-                    .citations(citations)
-                    .confidence(queryHistory.getConfidence())
-                    .cached(true)
-                    .needsClarification(false)
-                    .responseTimeMs(responseTime)
-                    .modelUsed("cached")
-                    .piiRedacted(queryHistory.getPiiRedacted())
-                    .build();
-        } catch (JsonProcessingException e) {
-            log.error("Error deserializing citations from cache", e);
-            return buildErrorResponse("Error retrieving cached response");
-        }
+    public AskResponse buildCachedResponse(AskResponse response, long totalTime) {
+        return AskResponse.builder()
+                .answer(response.getAnswer())
+                .citations(response.getCitations())
+                .confidence(response.getConfidence())
+                .cached(true)  // Mark as cached
+                .needsClarification(response.getNeedsClarification())
+                .clarificationQuestion(response.getClarificationQuestion())
+                .responseTimeMs(totalTime)  // Use actual retrieval time
+                .modelUsed("cached")  // Indicate it was served from cache
+                .piiRedacted(response.getPiiRedacted())
+                .build();
     }
 
     private AskResponse buildNoDocumentsFoundResponse(long responseTime) {

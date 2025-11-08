@@ -50,40 +50,50 @@ public class AdminService {
     }
 
     public void invalidateAllCaches() {
-        log.info("Invalidating all caches");
-
         if (cacheManager != null) {
             cacheManager.getCacheNames().forEach(cacheName -> {
-                Cache cache = cacheManager.getCache(cacheName);
+                var cache = cacheManager.getCache(cacheName);
                 if (cache != null) {
                     cache.clear();
-                    log.info("Cleared cache: {}", cacheName);
+                    log.debug("Cleared cache: {}", cacheName);
                 }
             });
         }
     }
 
     public CacheStatsResponse getCacheStats() {
-        Long totalHits = queryHistoryRepository.countCacheHits();
-        Long totalMisses = queryHistoryRepository.countCacheMisses();
-
-        long hits = totalHits != null ? totalHits : 0L;
-        long misses = totalMisses != null ? totalMisses : 0L;
-        long totalRequests = hits + misses;
-        double hitRate = totalRequests > 0 ? hits * 100.0 / totalRequests : 0.0;
-
-        // Get cache size from cache manager
         long cacheSize = 0L;
+        long hits = 0L;
+        long misses = 0L;
+        double hitRate = 0.0;
+
         if (cacheManager != null) {
-            Cache cache = cacheManager.getCache("queryCache");
+            Cache cache = cacheManager.getCache("queries");
             if (cache != null && cache.getNativeCache() instanceof com.github.benmanes.caffeine.cache.Cache) {
-                cacheSize = ((com.github.benmanes.caffeine.cache.Cache<?, ?>) cache.getNativeCache()).estimatedSize();
+                com.github.benmanes.caffeine.cache.Cache<?, ?> caffeineCache =
+                        (com.github.benmanes.caffeine.cache.Cache<?, ?>) cache.getNativeCache();
+
+                // Get cache size
+                cacheSize = caffeineCache.estimatedSize();
+
+                // Get cache statistics
+                com.github.benmanes.caffeine.cache.stats.CacheStats stats = caffeineCache.stats();
+                hits = stats.hitCount();
+                misses = stats.missCount();
+                long totalRequests = hits + misses;
+
+                if (totalRequests > 0) {
+                    hitRate = (double) hits / totalRequests;
+                }
+
+                log.debug("Cache stats - Size: {}, Hits: {}, Misses: {}, Hit Rate: {}",
+                        cacheSize, hits, misses, hitRate);
             }
         }
 
         return CacheStatsResponse.builder()
                 .size(cacheSize)
-                .hitRate(hitRate / 100.0) // Convert to decimal
+                .hitRate(hitRate)
                 .totalHits(hits)
                 .totalMisses(misses)
                 .build();

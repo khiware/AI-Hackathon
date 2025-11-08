@@ -33,6 +33,7 @@ public class DocumentProcessingService {
     private final DocumentRepository documentRepository;
     private final DocumentChunkRepository documentChunkRepository;
     private final EmbeddingService embeddingService;
+    private final AdminService adminService;
 
     @Value("${askbit.ai.document.storage-path:./documents}")
     private String documentStoragePath;
@@ -141,6 +142,10 @@ public class DocumentProcessingService {
             document.setChunkCount(chunks.size());
             document.setIndexed(true);
             documentRepository.save(document);
+
+            // Invalidate cache since document content has changed
+            log.info("Invalidating all caches");
+            adminService.invalidateAllCaches();
 
             long processingTime = System.currentTimeMillis() - startTime;
             log.info("Document processed: {} in {}ms",

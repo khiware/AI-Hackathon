@@ -17,9 +17,11 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager("queries", "documents");
         cacheManager.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(3600, TimeUnit.SECONDS)
-                .recordStats());
+                .maximumSize(5000)  // Increased from 1000 for more popular questions
+                .expireAfterWrite(7200, TimeUnit.SECONDS)  // 2 hours TTL
+                .expireAfterAccess(3600, TimeUnit.SECONDS)  // 1 hour idle timeout
+                .recordStats()
+                .initialCapacity(100));  // Pre-allocate space for faster writes
         return cacheManager;
     }
 }

@@ -21,11 +21,30 @@ public class AskController {
 
     @PostMapping("/ask")
     public ResponseEntity<AskResponse> ask(@Valid @RequestBody AskRequest request) {
+        String normalizedQuestion = questionAnsweringService.normalizeQuestion(request.getQuestion());
+        long startTime = System.currentTimeMillis();
         log.info("Received question: {}", request.getQuestion());
 
         try {
             AskResponse response = questionAnsweringService.answerQuestion(request);
-            return ResponseEntity.ok(response);
+
+            long totalTime = System.currentTimeMillis() - startTime;
+
+            // Detect cache hit based on response time
+            // Cache hits are extremely fast (<100ms), fresh responses take 2000ms+
+            boolean wasCachedResponse = totalTime < 100;
+
+            if (wasCachedResponse) {
+                log.info("Cache HIT for question: {} ({}ms)", normalizedQuestion, totalTime);
+                // Create a new response with cached flag set to true
+                AskResponse cachedResponse = questionAnsweringService.buildCachedResponse(response, totalTime);
+
+                return ResponseEntity.ok(cachedResponse);
+            } else {
+                log.info("Cache MISS for question: {} ({}ms)", normalizedQuestion, totalTime);
+                return ResponseEntity.ok(response);
+            }
+
         } catch (Exception e) {
             log.error("Error processing question", e);
 
