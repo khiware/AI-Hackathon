@@ -22,6 +22,7 @@ public class MetricsService {
     public MetricsResponse getMetrics() {
         Long totalQueries = queryHistoryRepository.count();
         Double avgResponseTime = queryHistoryRepository.findAverageResponseTime();
+        Double p95Latency = calculateP95Latency();
         Double cacheHitRate = queryHistoryRepository.findCacheHitRate();
         Long totalDocuments = documentRepository.count();
         Long totalChunks = documentChunkRepository.count();
@@ -31,17 +32,36 @@ public class MetricsService {
 
         String mostUsedModel = getMostUsedModel();
 
+        // Estimate cost: $0.002 per query (approximate GPT-3.5 cost)
+        Double estimatedCost = totalQueries * 0.002;
+
         return MetricsResponse.builder()
-                .totalQueries(totalQueries != null ? totalQueries : 0L)
+                .totalQueries(totalQueries)
                 .averageResponseTimeMs(avgResponseTime != null ? avgResponseTime : 0.0)
+                .p95LatencyMs(p95Latency != null ? p95Latency : 0.0)
                 .cacheHitRate(cacheHitRate != null ? cacheHitRate : 0.0)
-                .totalDocuments(totalDocuments != null ? totalDocuments : 0L)
-                .totalChunks(totalChunks != null ? totalChunks : 0L)
+                .totalDocuments(totalDocuments)
+                .totalChunks(totalChunks)
                 .averageConfidence(avgConfidence != null ? avgConfidence : 0.0)
                 .piiRedactionCount(piiRedactionCount != null ? piiRedactionCount : 0L)
                 .clarificationCount(clarificationCount != null ? clarificationCount : 0L)
                 .mostUsedModel(mostUsedModel)
+                .estimatedCost(estimatedCost)
                 .build();
+    }
+
+    private Double calculateP95Latency() {
+        List<Long> responseTimes = queryHistoryRepository.findAllResponseTimesSorted();
+
+        if (responseTimes == null || responseTimes.isEmpty()) {
+            return 0.0;
+        }
+
+        // Calculate 95th percentile index
+        int p95Index = (int) Math.ceil(responseTimes.size() * 0.05) - 1;
+        if (p95Index < 0) p95Index = 0;
+
+        return responseTimes.get(p95Index).doubleValue();
     }
 
     private String getMostUsedModel() {

@@ -38,6 +38,25 @@
             color: white;
             padding: 20px 30px;
             text-align: center;
+            position: relative;
+        }
+
+        .admin-link {
+            position: absolute;
+            right: 30px;
+            top: 20px;
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .admin-link:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
 
         .header h1 {
@@ -214,6 +233,7 @@
 <body>
     <div class="container">
         <div class="header">
+            <a href="admin.html" class="admin-link" title="Go to Admin Dashboard">🛠️ Admin Dashboard</a>
             <h1>🤖 AskBit.AI</h1>
             <p>Your AI-Powered Internal Policy Copilot</p>
         </div>

@@ -1,16 +1,16 @@
 package com.askbit.ai;
 
-import com.askbit.ai.dto.AskRequest;
-import com.askbit.ai.dto.AskResponse;
 import com.askbit.ai.service.PiiRedactionService;
 import com.askbit.ai.service.QuestionAnsweringService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@TestPropertySource(locations = "classpath:application.properties")
 class AskBitAiApplicationTests {
 
     @Autowired(required = false)

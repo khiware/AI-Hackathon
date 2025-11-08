@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class MetricsResponse {
     private Long totalQueries;
     private Double averageResponseTimeMs;
+    private Double p95LatencyMs;
     private Double cacheHitRate;
     private Long totalDocuments;
     private Long totalChunks;
@@ -19,6 +20,7 @@ public class MetricsResponse {
     private Long piiRedactionCount;
     private Long clarificationCount;
     private String mostUsedModel;
+    private Double estimatedCost;
 }
 
 
