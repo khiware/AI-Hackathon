@@ -90,7 +90,7 @@ public class DocumentProcessingService {
             if (fileType.equalsIgnoreCase("pdf")) {
                 chunks = processPdfDocument(filePath.toFile(), documentId);
                 pageCount = getPageCountFromPdf(filePath.toFile());
-            } else if (fileType.equalsIgnoreCase("docx")) {
+            } else if (fileType.equalsIgnoreCase("docx") || fileType.equalsIgnoreCase("doc")) {
                 chunks = processDocxDocument(filePath.toFile(), documentId);
             } else if (fileType.equalsIgnoreCase("md") || fileType.equalsIgnoreCase("txt")) {
                 chunks = processTextDocument(filePath.toFile(), documentId);
