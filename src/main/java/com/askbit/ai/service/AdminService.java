@@ -5,13 +5,12 @@ import com.askbit.ai.dto.TopQuestionResponse;
 import com.askbit.ai.repository.QueryHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +18,7 @@ import java.util.List;
 public class AdminService {
 
     private final QueryHistoryRepository queryHistoryRepository;
-    private final CacheManager cacheManager;
+    private final CacheService cacheService;
 
     public List<TopQuestionResponse> getTopQuestions(int limit) {
         List<Object[]> results = queryHistoryRepository.findTopQuestions();
@@ -50,51 +49,48 @@ public class AdminService {
     }
 
     public void invalidateAllCaches() {
-        if (cacheManager != null) {
-            cacheManager.getCacheNames().forEach(cacheName -> {
-                var cache = cacheManager.getCache(cacheName);
-                if (cache != null) {
-                    cache.clear();
-                    log.debug("Cleared cache: {}", cacheName);
-                }
-            });
+        try {
+            cacheService.evictCache();
+        } catch (Exception e) {
+            log.error("Error clearing Redis cache", e);
         }
     }
 
     public CacheStatsResponse getCacheStats() {
         long cacheSize = 0L;
-        long hits = 0L;
+        int hits = 0;
         long misses = 0L;
         double hitRate = 0.0;
 
-        if (cacheManager != null) {
-            Cache cache = cacheManager.getCache("queries");
-            if (cache != null && cache.getNativeCache() instanceof com.github.benmanes.caffeine.cache.Cache) {
-                com.github.benmanes.caffeine.cache.Cache<?, ?> caffeineCache =
-                        (com.github.benmanes.caffeine.cache.Cache<?, ?>) cache.getNativeCache();
+        try {
+            // Get cacheHits from Redis
+            hits = cacheService.getFromCache("queriesCacheHits") != null
+                    ? (int) cacheService.getFromCache("queriesCacheHits")
+                    : 0;
 
-                // Get cache size
-                cacheSize = caffeineCache.estimatedSize();
+            // Get actual Redis cache size by counting keys matching the pattern
+            Set<String> keys = cacheService.getKeysByPattern("queries::*");
+            cacheSize = (keys != null) ? keys.size() : 0L;
+            // Because misses would be stored in the cache
+            misses = cacheSize;
 
-                // Get cache statistics
-                com.github.benmanes.caffeine.cache.stats.CacheStats stats = caffeineCache.stats();
-                hits = stats.hitCount();
-                misses = stats.missCount();
-                long totalRequests = hits + misses;
-
-                if (totalRequests > 0) {
-                    hitRate = (double) hits / totalRequests;
-                }
-
-                log.debug("Cache stats - Size: {}, Hits: {}, Misses: {}, Hit Rate: {}",
-                        cacheSize, hits, misses, hitRate);
-            }
+            log.debug("Redis cache contains {} entries", cacheSize);
+        } catch (Exception e) {
+            log.error("Error getting Redis cache size", e);
         }
+
+        // Calculate hit rate based on total requests
+        if (cacheSize > 0) {
+            hitRate = (double) hits / cacheSize;
+        }
+
+        log.debug("Cache stats - Size: {}, Hits: {}, Misses: {}, Hit Rate: {}",
+                cacheSize, hits, misses, hitRate);
 
         return CacheStatsResponse.builder()
                 .size(cacheSize)
                 .hitRate(hitRate)
-                .totalHits(hits)
+                .totalHits((long) hits)
                 .totalMisses(misses)
                 .build();
     }

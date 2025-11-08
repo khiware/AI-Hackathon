@@ -1,28 +1,57 @@
 package com.askbit.ai.config;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-import java.util.concurrent.TimeUnit;
-
+/**
+ * Redis L2 Cache Configuration for AskBit.AI
+ * Provides distributed caching using RedisTemplate directly without CacheManager.
+ */
 @Configuration
-@EnableCaching
 public class CacheConfig {
 
     @Bean
-    public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("queries", "documents");
-        cacheManager.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(5000)  // Increased from 1000 for more popular questions
-                .expireAfterWrite(7200, TimeUnit.SECONDS)  // 2 hours TTL
-                .expireAfterAccess(3600, TimeUnit.SECONDS)  // 1 hour idle timeout
-                .recordStats()
-                .initialCapacity(100));  // Pre-allocate space for faster writes
-        return cacheManager;
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+
+        // Use String serializer for keys
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+
+        // Configure ObjectMapper for JSON serialization
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()
+                .allowIfBaseType(Object.class)
+                .build();
+
+        objectMapper.activateDefaultTyping(
+                ptv,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
+
+        // Use JSON serializer for values
+        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        template.setValueSerializer(jsonSerializer);
+        template.setHashValueSerializer(jsonSerializer);
+
+        template.afterPropertiesSet();
+        return template;
     }
 }
 

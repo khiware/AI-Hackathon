@@ -4,14 +4,12 @@ import com.askbit.ai.dto.MetricsResponse;
 import com.askbit.ai.repository.DocumentChunkRepository;
 import com.askbit.ai.repository.DocumentRepository;
 import com.askbit.ai.repository.QueryHistoryRepository;
-import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +19,7 @@ public class MetricsService {
     private final QueryHistoryRepository queryHistoryRepository;
     private final DocumentRepository documentRepository;
     private final DocumentChunkRepository documentChunkRepository;
-    private final CacheManager cacheManager;
+    private final CacheService cacheService;
 
     public MetricsResponse getMetrics() {
         Long totalQueries = queryHistoryRepository.count();
@@ -55,30 +53,27 @@ public class MetricsService {
     }
 
     /**
-     * Get cache hit rate from Caffeine cache statistics.
+     * Get cache hit rate from QueryHistory.
+     * Redis doesn't provide built-in stats like Caffeine, so we track via database.
      * Returns value between 0.0 and 1.0 representing the hit rate.
      */
     private Double calculateCacheHitRate() {
         try {
-            if (cacheManager != null) {
-                var cache = cacheManager.getCache("queries");
-                if (cache instanceof CaffeineCache) {
-                    CaffeineCache caffeineCache = (CaffeineCache) cache;
-                    com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCache =
-                            caffeineCache.getNativeCache();
+            // Get cacheHits from Redis
+            int hits = cacheService.getFromCache("queriesCacheHits") != null
+                    ? (int) cacheService.getFromCache("queriesCacheHits")
+                    : 0;
 
-                    CacheStats stats = nativeCache.stats();
-                    long hitCount = stats.hitCount();
-                    long missCount = stats.missCount();
-                    long totalRequests = hitCount + missCount;
+            Set<String> keys = cacheService.getKeysByPattern("queries::*");
+            long cacheSize = (keys != null) ? keys.size() : 0L;
 
-                    if (totalRequests > 0) {
-                        return (double) hitCount / totalRequests;
-                    }
-                }
+            log.debug("Redis cache contains {} entries", cacheSize);
+
+            if (cacheSize > 0) {
+                return (double) hits / cacheSize;
             }
         } catch (Exception e) {
-            log.error("Error fetching cache hit rate from Caffeine", e);
+            log.error("Error fetching cache hit rate from redisTemplate queries cache", e);
         }
 
         return 0.0;
