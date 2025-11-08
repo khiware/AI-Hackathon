@@ -450,15 +450,6 @@
                 <div class="metric-value" id="piiCount">-</div>
                 <div class="metric-subtitle">Total PII instances redacted</div>
             </div>
-
-            <div class="metric-card">
-                <div class="metric-label">
-                    <span class="metric-icon">📊</span>
-                    Total Queries
-                </div>
-                <div class="metric-value" id="totalQueries">-</div>
-                <div class="metric-subtitle">All-time question count</div>
-            </div>
         </div>
 
         <!-- Tabs -->
@@ -619,8 +610,6 @@
                     data.cacheHitRate ? `${(data.cacheHitRate * 100).toFixed(1)}%` : 'N/A';
                 document.getElementById('piiCount').textContent =
                     data.piiRedactionCount || '0';
-                document.getElementById('totalQueries').textContent =
-                    data.totalQueries || '0';
 
                 // Calculate clarification rate
                 const clarificationRate = data.totalQueries > 0

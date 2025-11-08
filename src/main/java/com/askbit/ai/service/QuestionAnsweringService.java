@@ -33,7 +33,7 @@ public class QuestionAnsweringService {
     private final ClarificationService clarificationService;
     private final CacheService cacheService;
     private final ObjectMapper objectMapper;
-    private long cacheHits = 0;
+    private long cacheHits = 0L;
 
     @Value("${askbit.ai.confidence-threshold:0.7}")
     private double confidenceThreshold;
@@ -86,7 +86,7 @@ public class QuestionAnsweringService {
         String cacheKey = "queries::" + normalizedQuestion;
         AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
         if (cachedResponse != null) {
-            cacheService.saveToCache("queriesCacheHits", cacheHits++);
+            cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
             return buildCachedResponse(cachedResponse,
                     System.currentTimeMillis() - startTime);
         }

@@ -58,14 +58,14 @@ public class AdminService {
 
     public CacheStatsResponse getCacheStats() {
         long cacheSize = 0L;
-        int hits = 0;
+        long hits = 0L;
         long misses = 0L;
         double hitRate = 0.0;
 
         try {
             // Get cacheHits from Redis
             hits = cacheService.getFromCache("queriesCacheHits") != null
-                    ? (int) cacheService.getFromCache("queriesCacheHits")
+                    ? Long.parseLong((String) cacheService.getFromCache("queriesCacheHits"))
                     : 0;
 
             // Get actual Redis cache size by counting keys matching the pattern
@@ -90,7 +90,7 @@ public class AdminService {
         return CacheStatsResponse.builder()
                 .size(cacheSize)
                 .hitRate(hitRate)
-                .totalHits((long) hits)
+                .totalHits(hits)
                 .totalMisses(misses)
                 .build();
     }

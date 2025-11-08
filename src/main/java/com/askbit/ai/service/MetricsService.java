@@ -40,8 +40,8 @@ public class MetricsService {
         return MetricsResponse.builder()
                 .totalQueries(totalQueries)
                 .averageResponseTimeMs(avgResponseTime != null ? avgResponseTime : 0.0)
-                .p95LatencyMs(p95Latency != null ? p95Latency : 0.0)
-                .cacheHitRate(cacheHitRate != null ? cacheHitRate : 0.0)
+                .p95LatencyMs(p95Latency)
+                .cacheHitRate(cacheHitRate)
                 .totalDocuments(totalDocuments)
                 .totalChunks(totalChunks)
                 .averageConfidence(avgConfidence != null ? avgConfidence : 0.0)
@@ -60,9 +60,9 @@ public class MetricsService {
     private Double calculateCacheHitRate() {
         try {
             // Get cacheHits from Redis
-            int hits = cacheService.getFromCache("queriesCacheHits") != null
-                    ? (int) cacheService.getFromCache("queriesCacheHits")
-                    : 0;
+            long hits = cacheService.getFromCache("queriesCacheHits") != null
+                    ? Long.parseLong((String) cacheService.getFromCache("queriesCacheHits"))
+                    : 0L;
 
             Set<String> keys = cacheService.getKeysByPattern("queries::*");
             long cacheSize = (keys != null) ? keys.size() : 0L;
