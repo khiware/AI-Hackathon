@@ -94,7 +94,7 @@ public class RetrievalService {
                 .section(chunk.getSection())
                 .startLine(chunk.getStartLine())
                 .endLine(chunk.getEndLine())
-                .snippet(truncateSnippet(chunk.getContent()))
+                .snippet(chunk.getContent())
                 .relevanceScore(chunkScore.getScore());
 
         if (document != null) {
@@ -103,22 +103,6 @@ public class RetrievalService {
         }
 
         return builder.build();
-    }
-
-    private String truncateSnippet(String content) {
-        int maxLength = 200;
-        if (content.length() <= maxLength) {
-            return content;
-        }
-
-        String truncated = content.substring(0, maxLength);
-        int lastSpace = truncated.lastIndexOf(' ');
-
-        if (lastSpace > 0) {
-            return truncated.substring(0, lastSpace) + "...";
-        }
-
-        return truncated + "...";
     }
 
     public String buildContextFromCitations(List<Citation> citations) {

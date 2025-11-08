@@ -124,7 +124,7 @@ public class DocumentProcessingService {
                 chunks = processPdfDocument(filePath.toFile(), documentId);
                 pageCount = getPageCountFromPdf(filePath.toFile());
                 // Don't save chunks again - already saved in processPdfDocument!
-            } else if (fileType.equalsIgnoreCase("docx")) {
+            } else if (fileType.equalsIgnoreCase("docx") || fileType.equalsIgnoreCase("doc")) {
                 chunks = processDocxDocument(filePath.toFile(), documentId);
                 // Save chunks for non-PDF documents
                 documentChunkRepository.saveAll(chunks);
