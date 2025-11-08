@@ -41,14 +41,14 @@ public class QuestionAnsweringService {
     @Value("${askbit.ai.use-hybrid-search:true}")
     private boolean useHybridSearch;
 
-    @Value("${askbit.ai.max-retrieval-results:5}")
+    @Value("${askbit.ai.max-retrieval-results:1}")
     private int maxRetrievalResults;
 
     /**
      * Answer a question based on company policy documents.
      */
     @Transactional
-    @Cacheable(value = "queries", key = "#request.question.toLowerCase().replaceAll('[^a-z0-9\\\\s]', '').trim()")
+  //  @Cacheable(value = "queries", key = "#request.question.toLowerCase().replaceAll('[^a-z0-9\\\\s]', '').trim()")
     public AskResponse answerQuestion(AskRequest request) {
         long startTime = System.currentTimeMillis();
 
@@ -84,14 +84,17 @@ public class QuestionAnsweringService {
         }
 
         // Retrieve relevant document chunks using Hybrid Search
+        List<DocumentChunk> chunks;
         List<Citation> citations;
 
         if (useHybridSearch) {
             log.info("Using hybrid search (vector + keyword) for retrieval");
-            citations = performHybridRetrieval(question);
+            chunks = hybridRetrievalService.hybridSearch(question, maxRetrievalResults);
+            citations = convertChunksToCitations(chunks);
         } else {
             log.info("Using traditional vector-only search for retrieval");
             citations = retrievalService.retrieveRelevantChunks(question);
+            chunks = null; // Not available in traditional search
         }
 
         // If no relevant documents found, return appropriate message
@@ -100,8 +103,10 @@ public class QuestionAnsweringService {
                     System.currentTimeMillis() - startTime);
         }
 
-        // Build context from retrieved chunks
-        String context = buildContextFromCitations(citations);
+        // Build context from retrieved chunks (use chunks if available, else citations)
+        String context = (useHybridSearch && chunks != null)
+            ? buildContextFromChunks(chunks)
+            : buildContextFromCitations(citations);
 
         // Build prompt for LLM
         String prompt = buildPrompt(question, context);
@@ -145,34 +150,48 @@ public class QuestionAnsweringService {
 
                 Your task is to answer questions based ONLY on the provided company documents.
 
-                IMPORTANT RULES:
+                IMPORTANT FORMATTING RULES:
                 1. Answer ONLY using information from the retrieved documents below
                 2. If the documents don't contain the answer, say: "I couldn't find a clear policy on this. Please check with HR or submit a ticket."
-                3. Include specific references to document sections when answering
-                4. Be concise and professional
-                5. Do not make up information or use external knowledge
-                6. If information is ambiguous, acknowledge it
+                
+                3. FORMAT YOUR ANSWER WITH CLEAR STRUCTURE:
+                   - Start with a brief overview (1-2 sentences)
+                   - Use **bold** for section headings and key terms
+                   - Use numbered lists (1., 2., 3.) for main points
+                   - Use bullet points (•) for sub-items
+                   - Keep each point concise (1-2 sentences max)
+                
+                4. ADD INLINE CITATIONS after EVERY fact using this exact format:
+                   [Document X, Page Y]
+                   Example: "Employees must work 10 days per month in office [Document 1, Page 3]"
+                
+                5. For complex policies, use this structure:
+                   **Policy Overview:**
+                   Brief summary [Document X, Page Y]
+                   
+                   **Key Points:**
+                   1. **First Topic:** Details here [Document X, Page Y]
+                   2. **Second Topic:** Details here [Document X, Page Y]
+                   3. **Third Topic:** Details here [Document X, Page Y]
+                
+                6. DO NOT add a "References" section at the end - citations are shown separately
+                
+                7. Be concise, professional, and accurate
+                8. Do not make up information or use external knowledge
 
                 Retrieved Documents:
                 %s
 
                 Employee Question: %s
 
-                Answer:
+                Answer (with clear formatting and inline citations):
                 """, context, question);
     }
 
     /**
-     * Perform hybrid retrieval (vector + keyword search) and convert to citations
+     * Convert chunks to citations without snippet (for response)
      */
-    private List<Citation> performHybridRetrieval(String question) {
-        // Use hybrid search to get document chunks
-        List<DocumentChunk> chunks = hybridRetrievalService.hybridSearch(
-                question,
-                maxRetrievalResults
-        );
-
-        // Convert chunks to citations with document metadata
+    private List<Citation> convertChunksToCitations(List<DocumentChunk> chunks) {
         return chunks.stream()
                 .map(this::convertChunkToCitation)
                 .collect(Collectors.toList());
@@ -180,6 +199,7 @@ public class QuestionAnsweringService {
 
     /**
      * Convert DocumentChunk to Citation with document metadata
+     * Note: Snippet is excluded from response, only metadata is included
      */
     private Citation convertChunkToCitation(DocumentChunk chunk) {
         // Get document metadata
@@ -193,7 +213,7 @@ public class QuestionAnsweringService {
                 .section(chunk.getSection())
                 .startLine(chunk.getStartLine())
                 .endLine(chunk.getEndLine())
-                .snippet(chunk.getContent())
+                // .snippet(chunk.getContent())  // Removed: snippet not included in response
                 .relevanceScore(0.85); // Hybrid search provides internal scoring
 
         if (document != null) {
@@ -202,6 +222,31 @@ public class QuestionAnsweringService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Build context string from chunks (used internally for LLM prompt)
+     */
+    private String buildContextFromChunks(List<DocumentChunk> chunks) {
+        StringBuilder context = new StringBuilder();
+
+        for (int i = 0; i < chunks.size(); i++) {
+            DocumentChunk chunk = chunks.get(i);
+            Document document = documentRepository
+                    .findByDocumentId(chunk.getDocumentId())
+                    .orElse(null);
+
+            String fileName = document != null ? document.getFileName() : "Unknown";
+            Integer pageNum = chunk.getPageNumber() != null ? chunk.getPageNumber() : 0;
+
+            context.append(String.format("[Document %d: %s, Page %d]\n%s\n\n",
+                    i + 1,
+                    fileName,
+                    pageNum,
+                    chunk.getContent()));
+        }
+
+        return context.toString();
     }
 
     /**

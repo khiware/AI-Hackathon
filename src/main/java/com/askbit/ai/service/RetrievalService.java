@@ -94,7 +94,7 @@ public class RetrievalService {
                 .section(chunk.getSection())
                 .startLine(chunk.getStartLine())
                 .endLine(chunk.getEndLine())
-                .snippet(chunk.getContent())
+                // .snippet(chunk.getContent())  // Removed: snippet not included in response
                 .relevanceScore(chunkScore.getScore());
 
         if (document != null) {
