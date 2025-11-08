@@ -9,7 +9,15 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "documents")
+@Table(name = "documents",
+       uniqueConstraints = {
+           @UniqueConstraint(name = "uk_filename_version", columnNames = {"fileName", "version"})
+       },
+       indexes = {
+           @Index(name = "idx_filename", columnList = "fileName"),
+           @Index(name = "idx_active", columnList = "active"),
+           @Index(name = "idx_indexed", columnList = "indexed")
+       })
 @Data
 @Builder
 @NoArgsConstructor
@@ -48,6 +56,8 @@ public class Document {
     private Boolean active;
 
     private Integer pageCount;
+
+    private Integer chunkCount;
 
     private Long fileSize;
 
