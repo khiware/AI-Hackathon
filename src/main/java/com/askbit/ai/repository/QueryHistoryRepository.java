@@ -18,7 +18,7 @@ public interface QueryHistoryRepository extends JpaRepository<QueryHistory, Long
     @Query("SELECT AVG(qh.responseTimeMs) FROM QueryHistory qh")
     Double findAverageResponseTime();
 
-    @Query("SELECT COUNT(qh) * 100.0 / (SELECT COUNT(qh2) FROM QueryHistory qh2) FROM QueryHistory qh WHERE qh.fromCache = true")
+    @Query("SELECT CASE WHEN (SELECT COUNT(qh2) FROM QueryHistory qh2) = 0 THEN 0.0 ELSE COUNT(qh) * 100.0 / (SELECT COUNT(qh2) FROM QueryHistory qh2) END FROM QueryHistory qh WHERE qh.fromCache = true")
     Double findCacheHitRate();
 
     @Query("SELECT AVG(qh.confidence) FROM QueryHistory qh")

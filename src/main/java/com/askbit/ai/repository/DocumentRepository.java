@@ -14,4 +14,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByFileNameContainingIgnoreCase(String fileName);
     Optional<Document> findByDocumentIdAndVersion(String documentId, String version);
     List<Document> findByIndexed(Boolean indexed);
+    Optional<Document> findByFileNameAndVersion(String fileName, String version);
+    Optional<Document> findByFileNameAndVersionAndActive(String fileName, String version, Boolean active);
 }
