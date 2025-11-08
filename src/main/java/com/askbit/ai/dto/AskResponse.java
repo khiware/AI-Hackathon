@@ -5,13 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AskResponse {
+public class AskResponse implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private String answer;
     private List<Citation> citations;
     private Double confidence;

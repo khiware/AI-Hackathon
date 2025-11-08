@@ -13,12 +13,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,7 +31,9 @@ public class QuestionAnsweringService {
     private final PiiRedactionService piiRedactionService;
     private final QueryHistoryRepository queryHistoryRepository;
     private final ClarificationService clarificationService;
+    private final CacheService cacheService;
     private final ObjectMapper objectMapper;
+    private long cacheHits = 0;
 
     @Value("${askbit.ai.confidence-threshold:0.7}")
     private double confidenceThreshold;
@@ -48,7 +48,6 @@ public class QuestionAnsweringService {
      * Answer a question based on company policy documents.
      */
     @Transactional
-  //  @Cacheable(value = "queries", key = "#request.question.toLowerCase().replaceAll('[^a-z0-9\\\\s]', '').trim()")
     public AskResponse answerQuestion(AskRequest request) {
         long startTime = System.currentTimeMillis();
 
@@ -81,6 +80,15 @@ public class QuestionAnsweringService {
                     .needsClarification(true)
                     .responseTimeMs(System.currentTimeMillis() - startTime)
                     .build();
+        }
+
+        // Try to get from Redis cache first
+        String cacheKey = "queries::" + normalizedQuestion;
+        AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
+        if (cachedResponse != null) {
+            cacheService.saveToCache("queriesCacheHits", cacheHits++);
+            return buildCachedResponse(cachedResponse,
+                    System.currentTimeMillis() - startTime);
         }
 
         // Retrieve relevant document chunks using Hybrid Search
@@ -140,6 +148,9 @@ public class QuestionAnsweringService {
         // Save to query history for analytics
         saveQueryHistory(normalizedQuestion, originalQuestion, response,
                 modelResponse.getModelUsed());
+
+        // Store in Redis cache with 1-day TTL
+        cacheService.saveToCache(cacheKey, response);
 
         return response;
     }
@@ -267,7 +278,7 @@ public class QuestionAnsweringService {
         return context.toString();
     }
 
-    public String normalizeQuestion(String question) {
+    private String normalizeQuestion(String question) {
         return question.toLowerCase()
                 .replaceAll("[^a-z0-9\\s]", "")
                 .trim();
@@ -289,7 +300,7 @@ public class QuestionAnsweringService {
         return Math.min(avgRelevance + citationBonus, 1.0);
     }
 
-    public AskResponse buildCachedResponse(AskResponse response, long totalTime) {
+    private AskResponse buildCachedResponse(AskResponse response, long totalTime) {
         return AskResponse.builder()
                 .answer(response.getAnswer())
                 .citations(response.getCitations())
@@ -325,7 +336,7 @@ public class QuestionAnsweringService {
     }
 
     private void saveQueryHistory(String normalizedQuestion, String originalQuestion,
-                                   AskResponse response, String modelUsed) {
+                                  AskResponse response, String modelUsed) {
         try {
             String citationsJson = objectMapper.writeValueAsString(response.getCitations());
 

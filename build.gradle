@@ -45,8 +45,11 @@ dependencies {
     implementation 'org.apache.tika:tika-core:2.9.1'
     implementation 'org.apache.tika:tika-parsers-standard-package:2.9.1'
 
-    // Caching
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    // Caching - Redis L2 Cache with Lettuce Client
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'io.lettuce:lettuce-core:6.3.0.RELEASE'
+    implementation 'org.apache.commons:commons-pool2:2.12.0'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
     // Database - PostgreSQL with pgvector support
     runtimeOnly 'org.postgresql:postgresql'
