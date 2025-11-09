@@ -59,12 +59,20 @@ public class QuestionAnsweringService {
             return buildErrorResponse("Question cannot be empty");
         }
 
+        // Check for greetings and conversational inputs
+        if (isGreeting(question)) {
+            return buildGreetingResponse(question, System.currentTimeMillis() - startTime);
+        }
+
         // STEP 1: Preprocess question - handle spelling mistakes, special characters, etc.
         String originalQuestion = question;
         question = queryPreprocessingService.preprocessQuestion(question);
 
         if (!originalQuestion.equals(question)) {
-            log.info("Question preprocessed from: '{}' to: '{}'", originalQuestion, question);
+            // Mask PII before logging to prevent exposure of names, phone numbers, emails etc.
+            String maskedOriginal = piiRedactionService.redactPii(originalQuestion);
+            String maskedProcessed = piiRedactionService.redactPii(question);
+            log.info("Question preprocessed (PII masked): '{}' -> '{}'", maskedOriginal, maskedProcessed);
         }
 
         // STEP 2: Redact PII from question
@@ -104,7 +112,7 @@ public class QuestionAnsweringService {
 
         // If temporal analysis needs clarification (e.g., "old policy" without year)
         if (temporalContext.isNeedsClarification()) {
-            log.info("Temporal analysis requires clarification: {}", question);
+            log.info("Temporal analysis requires clarification");
             AskResponse needClarificationResponse = AskResponse.builder()
                     .clarificationQuestion(temporalContext.getClarificationReason())
                     .needsClarification(true)
@@ -522,6 +530,37 @@ public class QuestionAnsweringService {
         } catch (JsonProcessingException e) {
             log.error("Error saving query history", e);
         }
+    }
+
+    private boolean isGreeting(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return false;
+        }
+        String normalized = input.toLowerCase().trim().replaceAll("[^a-z\\s]", "");
+        String[] greetings = {"hello", "hi", "hey", "hola", "greetings", "good morning",
+                              "good afternoon", "good evening", "whats up", "how are you",
+                              "howdy", "sup", "yo", "hii", "helloo", "heyy"};
+        for (String greeting : greetings) {
+            if (normalized.equals(greeting) || normalized.startsWith(greeting + " ")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private AskResponse buildGreetingResponse(String greeting, long responseTime) {
+        String answer = "Hello! 👋 I'm AskBit.AI, your AI-powered policy assistant. Ask me anything about company policies, HR, benefits, leave, or expenses!";
+        log.info("Responding to greeting with welcome message");
+        return AskResponse.builder()
+                .answer(answer)
+                .citations(List.of())
+                .confidence(1.0)
+                .cached(false)
+                .needsClarification(false)
+                .responseTimeMs(responseTime)
+                .modelUsed("greeting-handler")
+                .piiRedacted(false)
+                .build();
     }
 }
 

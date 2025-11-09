@@ -57,7 +57,7 @@ public class PiiRedactionService {
 
         // Names with common patterns (Mr., Mrs., Ms., Dr. followed by capitalized words)
         PII_PATTERNS.put("NAME", Pattern.compile(
-            "\\b(?:Mr\\.|Mrs\\.|Ms\\.|Dr\\.|Prof\\.)\\s+[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*\\b"
+            "\\b(?:Mr\\.|Mrs\\.|Ms\\.|Dr\\.|Prof\\.)\\s*[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*\\b"
         ));
     }
 

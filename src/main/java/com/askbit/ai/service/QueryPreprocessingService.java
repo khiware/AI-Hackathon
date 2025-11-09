@@ -1,5 +1,6 @@
 package com.askbit.ai.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -13,7 +14,10 @@ import java.util.regex.Pattern;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class QueryPreprocessingService {
+
+    private final PiiRedactionService piiRedactionService;
 
     // Common spelling mistakes in HR/policy domain
     private static final Map<String, String> SPELLING_CORRECTIONS = new HashMap<>();
@@ -115,7 +119,9 @@ public class QueryPreprocessingService {
             return question;
         }
 
-        log.debug("Original question: {}", question);
+        // Mask PII before logging to prevent sensitive data in logs
+        String maskedForLogging = piiRedactionService.redactPii(question);
+        log.debug("Original question (PII masked): {}", maskedForLogging);
 
         String processed = question;
 
@@ -135,7 +141,10 @@ public class QueryPreprocessingService {
         processed = processed.trim();
 
         if (!question.equals(processed)) {
-            log.info("Question corrected: '{}' -> '{}'", question, processed);
+            // Mask PII before logging both original and corrected questions
+            String maskedOriginal = piiRedactionService.redactPii(question);
+            String maskedProcessed = piiRedactionService.redactPii(processed);
+            log.info("Question corrected (PII masked): '{}' -> '{}'", maskedOriginal, maskedProcessed);
         }
 
         return processed;
