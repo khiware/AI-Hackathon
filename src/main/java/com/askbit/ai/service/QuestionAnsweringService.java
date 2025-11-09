@@ -41,7 +41,7 @@ public class QuestionAnsweringService {
     @Value("${askbit.ai.use-hybrid-search:true}")
     private boolean useHybridSearch;
 
-    @Value("${askbit.ai.max-retrieval-results:1}")
+    @Value("${askbit.ai.max-retrieval-results:5}")
     private int maxRetrievalResults;
 
     /**
