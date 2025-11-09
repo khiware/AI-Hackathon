@@ -1,7 +1,9 @@
 package com.askbit.ai.service;
 
+import com.askbit.ai.model.Document;
 import com.askbit.ai.model.DocumentChunk;
 import com.askbit.ai.repository.DocumentChunkRepository;
+import com.askbit.ai.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 /**
  * Enhanced Retrieval Service with Hybrid Search (Vector + Keyword)
  * Supports PostgreSQL pgvector for fast similarity search
+ * NOW WITH VERSION-AWARE RETRIEVAL
  */
 @Service
 @RequiredArgsConstructor
@@ -20,6 +23,7 @@ import java.util.stream.Collectors;
 public class HybridRetrievalService {
 
     private final DocumentChunkRepository documentChunkRepository;
+    private final DocumentRepository documentRepository;
     private final EmbeddingService embeddingService;
 
     private static final double VECTOR_WEIGHT = 0.7;    // 70% weight for vector similarity
@@ -31,32 +35,78 @@ public class HybridRetrievalService {
      */
     @Cacheable(value = "vectorSearchCache", key = "#question + '_' + #topK")
     public List<DocumentChunk> hybridSearch(String question, int topK) {
+        return hybridSearchWithVersionFilter(question, topK, null);
+    }
+
+    /**
+     * Version-aware hybrid search
+     * @param question The search query
+     * @param topK Number of results to return
+     * @param targetYear Optional year filter (null = latest versions only)
+     */
+    public List<DocumentChunk> hybridSearchWithVersionFilter(String question, int topK, Integer targetYear) {
         long startTime = System.currentTimeMillis();
+
+        // Get relevant document IDs based on version filter
+        List<String> allowedDocumentIds = getVersionFilteredDocumentIds(targetYear);
+
+        if (allowedDocumentIds.isEmpty()) {
+            log.warn("No documents found for version filter (year: {})", targetYear);
+            return Collections.emptyList();
+        }
+
+        log.info("Version filter: {} documents allowed (year: {})",
+                allowedDocumentIds.size(), targetYear != null ? targetYear : "latest");
 
         // Step 1: Generate embedding for the question
         List<Double> questionEmbedding = embeddingService.generateEmbedding(question);
 
-        // Step 2: Vector similarity search
-        List<ScoredChunk> vectorResults = vectorSimilaritySearch(questionEmbedding, topK * 2);
+        // Step 2: Vector similarity search (filtered by version)
+        List<ScoredChunk> vectorResults = vectorSimilaritySearch(questionEmbedding, topK * 2, allowedDocumentIds);
 
-        // Step 3: Keyword-based search
-        List<ScoredChunk> keywordResults = keywordSearch(question, topK * 2);
+        // Step 3: Keyword-based search (filtered by version)
+        List<ScoredChunk> keywordResults = keywordSearch(question, topK * 2, allowedDocumentIds);
 
         // Step 4: Combine and re-rank results
         List<DocumentChunk> hybridResults = combineAndRerankResults(
                 vectorResults, keywordResults, topK);
 
         long duration = System.currentTimeMillis() - startTime;
-        log.info("Hybrid search completed in {}ms: found {} results", duration, hybridResults.size());
+        log.info("Version-aware hybrid search completed in {}ms: found {} results", duration, hybridResults.size());
 
         return hybridResults;
     }
 
     /**
-     * Pure vector similarity search using cosine similarity
+     * Get document IDs filtered by version (latest or specific year)
      */
-    private List<ScoredChunk> vectorSimilaritySearch(List<Double> queryEmbedding, int limit) {
-        List<DocumentChunk> allChunks = documentChunkRepository.findAll();
+    private List<String> getVersionFilteredDocumentIds(Integer targetYear) {
+        List<Document> documents;
+
+        if (targetYear == null) {
+            // Get latest versions only
+            documents = documentRepository.findLatestVersions();
+            log.info("Using latest versions: {} documents", documents.size());
+        } else {
+            // Get latest versions before/at target year
+            documents = documentRepository.findLatestVersionsBeforeYear(targetYear);
+            log.info("Using versions before/at year {}: {} documents", targetYear, documents.size());
+        }
+
+        return documents.stream()
+                .map(Document::getDocumentId)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Pure vector similarity search using cosine similarity (with version filter)
+     */
+    private List<ScoredChunk> vectorSimilaritySearch(List<Double> queryEmbedding, int limit,
+                                                      List<String> allowedDocumentIds) {
+        // Get only chunks from allowed documents
+        List<DocumentChunk> allChunks = allowedDocumentIds.isEmpty()
+                ? Collections.emptyList()
+                : documentChunkRepository.findByDocumentIdIn(allowedDocumentIds);
 
         return allChunks.stream()
                 .filter(chunk -> chunk.getEmbeddingVector() != null)
@@ -73,11 +123,15 @@ public class HybridRetrievalService {
     }
 
     /**
-     * Keyword-based search using content matching
+     * Keyword-based search using content matching (with version filter)
      */
-    private List<ScoredChunk> keywordSearch(String query, int limit) {
+    private List<ScoredChunk> keywordSearch(String query, int limit, List<String> allowedDocumentIds) {
         String[] keywords = extractKeywords(query);
-        List<DocumentChunk> allChunks = documentChunkRepository.findAll();
+
+        // Get only chunks from allowed documents
+        List<DocumentChunk> allChunks = allowedDocumentIds.isEmpty()
+                ? Collections.emptyList()
+                : documentChunkRepository.findByDocumentIdIn(allowedDocumentIds);
 
         return allChunks.stream()
                 .map(chunk -> {

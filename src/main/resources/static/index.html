@@ -496,10 +496,18 @@
                     const citationDiv = document.createElement('div');
                     citationDiv.className = 'citation';
 
-                    // Simple reference format: 📄 filename, page: X, lines: X-Y
+                    // Simple reference format: 📄 filename (version: x.0), page: X, lines: X-Y
                     const reference = document.createElement('div');
                     reference.className = 'citation-reference';
+
+                    // Build reference text
                     let refText = `📄 ${citation.fileName}`;
+
+                    // Add version in format "version: x.0"
+                    if (citation.version) {
+                        refText += ` (version: ${citation.version})`;
+                    }
+
                     if (citation.pageNumber) {
                         refText += `, page: ${citation.pageNumber}`;
                     }

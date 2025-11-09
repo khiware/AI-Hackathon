@@ -32,6 +32,7 @@ public class QuestionAnsweringService {
     private final QueryHistoryRepository queryHistoryRepository;
     private final ClarificationService clarificationService;
     private final CacheService cacheService;
+    private final TemporalQueryAnalyzer temporalQueryAnalyzer;
     private final ObjectMapper objectMapper;
     private long cacheHits = 0L;
 
@@ -73,6 +74,20 @@ public class QuestionAnsweringService {
         // Track if user provided clarification context
         boolean wasClarified = request.getContext() != null && !request.getContext().trim().isEmpty();
 
+        // TEMPORAL ANALYSIS: Analyze question for version/year context
+        TemporalQueryAnalyzer.TemporalContext temporalContext =
+                temporalQueryAnalyzer.analyzeQuestion(question);
+
+        // If temporal analysis needs clarification (e.g., "old policy" without year)
+        if (temporalContext.isNeedsClarification()) {
+            log.info("Temporal analysis requires clarification: {}", question);
+            return AskResponse.builder()
+                    .clarificationQuestion(temporalContext.getClarificationReason())
+                    .needsClarification(true)
+                    .responseTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
+        }
+
         // Handle clarification flow:
         // If user provided context (responding to a clarification question), expand the question
         if (wasClarified) {
@@ -93,6 +108,9 @@ public class QuestionAnsweringService {
                         .responseTimeMs(System.currentTimeMillis() - startTime)
                         .build();
             }
+
+            // Re-analyze temporal context after clarification
+            temporalContext = temporalQueryAnalyzer.analyzeQuestion(question);
         }
         // Otherwise, check if question needs clarification (first pass)
         else if (clarificationService.needsClarification(question)) {
@@ -109,8 +127,17 @@ public class QuestionAnsweringService {
                     .build();
         }
 
+        // Determine target year for version filtering
+        Integer targetYear = temporalContext.isHistoricalQuery()
+                ? temporalContext.getTargetYear()
+                : null;
+
+        log.info("Version filter applied - Latest: {}, Year: {}",
+                temporalContext.isUseLatestVersion(), targetYear);
+
         // Try to get from Redis cache first
-        String cacheKey = "queries::" + normalizedQuestion;
+        String cacheKey = "queries::" + normalizedQuestion + "::" +
+                (targetYear != null ? targetYear : "latest");
         AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
 
         // Keep cached answer text for potential failover (even if returning cached response now)
@@ -122,19 +149,21 @@ public class QuestionAnsweringService {
                     System.currentTimeMillis() - startTime);
             saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
                     newCachedResponse.getModelUsed(), wasClarified);
+            return newCachedResponse;
         }
 
-        // Retrieve relevant document chunks using Hybrid Search
+        // Retrieve relevant document chunks using Hybrid Search WITH VERSION FILTER
         List<DocumentChunk> chunks;
         List<Citation> citations;
 
         if (useHybridSearch) {
-            log.info("Using hybrid search (vector + keyword) for retrieval");
-            chunks = hybridRetrievalService.hybridSearch(question, maxRetrievalResults);
+            log.info("Using hybrid search (vector + keyword) for retrieval with version filter");
+            chunks = hybridRetrievalService.hybridSearchWithVersionFilter(
+                    question, maxRetrievalResults, targetYear);
             citations = convertChunksToCitations(chunks);
         } else {
-            log.info("Using traditional vector-only search for retrieval");
-            citations = retrievalService.retrieveRelevantChunks(question);
+            log.info("Using traditional vector-only search for retrieval with version filter");
+            citations = retrievalService.retrieveRelevantChunksWithVersionFilter(question, targetYear);
             chunks = null; // Not available in traditional search
         }
 
@@ -199,10 +228,19 @@ public class QuestionAnsweringService {
 
                 CRITICAL RULES:
                 1. Answer ONLY using information from the retrieved documents below
-                2. If the retrieved documents DO NOT contain specific information to answer the question, you MUST respond EXACTLY with:
+                2. The documents provided are VERSION-SPECIFIC:
+                   - If the question asks about current/latest policy, you're seeing the LATEST VERSION only
+                   - If the question asks about a specific year (e.g., 2023), you're seeing the version FROM THAT YEAR
+                   - Always answer based on the version shown in the document metadata [Document X: filename, Page Y]
+                3. If the retrieved documents DO NOT contain specific information to answer the question, you MUST respond EXACTLY with:
                    "I couldn't find a clear policy on this. Please check with HR or submit a ticket."
-                3. DO NOT make up information or provide general answers not found in the documents
-                4. If the documents contain partial or related information but not the specific answer, still say you couldn't find it
+                4. DO NOT make up information or provide general answers not found in the documents
+                5. If the documents contain partial or related information but not the specific answer, still say you couldn't find it
+                
+                VERSION AWARENESS:
+                   - Pay attention to document version numbers and dates in the document headers
+                   - If answering about a specific year, acknowledge it: "According to the 2023 policy..."
+                   - If answering about current policy, you can say: "According to the current policy..."
                 
                 FORMATTING RULES (only if you CAN answer from the documents):
                    - DO NOT include any citation references like [Document X, Page Y] in your answer
@@ -246,16 +284,16 @@ public class QuestionAnsweringService {
                    For Timeline or Date-based Information:
                    - Use tables or chronological lists
                 
-                4. FORMATTING ENHANCEMENTS:
+                6. FORMATTING ENHANCEMENTS:
                    - Use **bold** for important terms, headings, and key points
                    - Use horizontal separators (---) to break up long content
                    - Use > blockquotes for important notices or warnings
                    - Keep paragraphs short (2-3 sentences max)
                    - Add blank lines between sections for readability
                 
-                5. Be concise, professional, and accurate
-                6. Do not make up information or use external knowledge
-                7. Present information in the most visually clear and easily understandable format
+                7. Be concise, professional, and accurate
+                8. Do not make up information or use external knowledge
+                9. Present information in the most visually clear and easily understandable format
 
                 Retrieved Documents:
                 """;
@@ -333,9 +371,16 @@ public class QuestionAnsweringService {
 
         for (int i = 0; i < citations.size(); i++) {
             Citation citation = citations.get(i);
+
+            // Format: "Document X: filename (version: x.0), Page Y"
+            String documentName = citation.getFileName() != null ? citation.getFileName() : "Unknown";
+            if (citation.getVersion() != null && !citation.getVersion().isEmpty()) {
+                documentName = documentName + " (version: " + citation.getVersion() + ")";
+            }
+
             context.append(String.format("[Document %d: %s, Page %d]\n%s\n\n",
                     i + 1,
-                    citation.getFileName() != null ? citation.getFileName() : "Unknown",
+                    documentName,
                     citation.getPageNumber() != null ? citation.getPageNumber() : 0,
                     citation.getSnippet()));
         }

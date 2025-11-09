@@ -16,5 +16,10 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Lo
     List<DocumentChunk> findByDocumentIdOrderByChunkIndex(String documentId);
 
     void deleteByDocumentId(String documentId);
+
+    /**
+     * Find chunks only from specific document IDs (for version filtering)
+     */
+    List<DocumentChunk> findByDocumentIdIn(List<String> documentIds);
 }
 

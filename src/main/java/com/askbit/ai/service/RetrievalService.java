@@ -31,7 +31,25 @@ public class RetrievalService {
     private double confidenceThreshold;
 
     public List<Citation> retrieveRelevantChunks(String question) {
-        log.debug("Retrieving relevant chunks for question: {}", question);
+        return retrieveRelevantChunksWithVersionFilter(question, null);
+    }
+
+    /**
+     * Version-aware retrieval
+     * @param question The search query
+     * @param targetYear Optional year filter (null = latest versions only)
+     */
+    public List<Citation> retrieveRelevantChunksWithVersionFilter(String question, Integer targetYear) {
+        log.debug("Retrieving relevant chunks for question: {} (year filter: {})",
+                question, targetYear != null ? targetYear : "latest");
+
+        // Get relevant document IDs based on version filter
+        List<String> allowedDocumentIds = getVersionFilteredDocumentIds(targetYear);
+
+        if (allowedDocumentIds.isEmpty()) {
+            log.warn("No documents found for version filter (year: {})", targetYear);
+            return List.of();
+        }
 
         // Generate embedding for the question
         List<Double> questionEmbedding = embeddingService.generateEmbedding(question);
@@ -41,11 +59,11 @@ public class RetrievalService {
             return List.of();
         }
 
-        // Get all document chunks
-        List<DocumentChunk> allChunks = documentChunkRepository.findAll();
+        // Get chunks only from allowed documents
+        List<DocumentChunk> allChunks = documentChunkRepository.findByDocumentIdIn(allowedDocumentIds);
 
         if (allChunks.isEmpty()) {
-            log.info("No document chunks found in database");
+            log.info("No document chunks found for allowed documents");
             return List.of();
         }
 
@@ -72,12 +90,33 @@ public class RetrievalService {
                 .limit(maxRetrievalResults)
                 .collect(Collectors.toList());
 
-        log.info("Found {} relevant chunks with similarity >= {}",
-                topChunks.size(), confidenceThreshold);
+        log.info("Found {} relevant chunks with similarity >= {} (year filter: {})",
+                topChunks.size(), confidenceThreshold, targetYear != null ? targetYear : "latest");
 
         // Convert to Citations
         return topChunks.stream()
                 .map(this::convertToCitation)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get document IDs filtered by version (latest or specific year)
+     */
+    private List<String> getVersionFilteredDocumentIds(Integer targetYear) {
+        List<Document> documents;
+
+        if (targetYear == null) {
+            // Get latest versions only
+            documents = documentRepository.findLatestVersions();
+            log.info("Using latest versions: {} documents", documents.size());
+        } else {
+            // Get latest versions before/at target year
+            documents = documentRepository.findLatestVersionsBeforeYear(targetYear);
+            log.info("Using versions before/at year {}: {} documents", targetYear, documents.size());
+        }
+
+        return documents.stream()
+                .map(Document::getDocumentId)
                 .collect(Collectors.toList());
     }
 
@@ -115,7 +154,7 @@ public class RetrievalService {
 
         for (int i = 0; i < citations.size(); i++) {
             Citation citation = citations.get(i);
-            context.append(String.format("[Source %d] %s (v%s)",
+            context.append(String.format("[Source %d] %s (version: %s)",
                     i + 1,
                     citation.getFileName(),
                     citation.getVersion()));

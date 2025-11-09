@@ -59,8 +59,8 @@ public class DocumentProcessingService {
                     .build();
         }
 
-        // Normalize version
-        String documentVersion = version != null ? version : "1.0";
+        // Normalize version to x.0 format (1.0, 2.0, 3.0, etc.)
+        String documentVersion = normalizeVersion(version != null ? version : "1.0");
 
         // Check for existing active document with same filename and version
         Optional<Document> existingDocument = documentRepository
@@ -472,6 +472,42 @@ public class DocumentProcessingService {
     private String getFileExtension(String fileName) {
         int lastDotIndex = fileName.lastIndexOf('.');
         return lastDotIndex > 0 ? fileName.substring(lastDotIndex + 1) : "";
+    }
+
+    /**
+     * Normalize version to x.0 format (e.g., "1" -> "1.0", "2" -> "2.0", "v3" -> "3.0")
+     */
+    private String normalizeVersion(String version) {
+        if (version == null || version.trim().isEmpty()) {
+            return "1.0";
+        }
+
+        String normalized = version.trim();
+
+        // Remove 'v' or 'V' prefix if present
+        if (normalized.toLowerCase().startsWith("v")) {
+            normalized = normalized.substring(1);
+        }
+
+        // If already in x.0 format, return as is
+        if (normalized.matches("^\\d+\\.\\d+$")) {
+            return normalized;
+        }
+
+        // If just a number, append .0
+        if (normalized.matches("^\\d+$")) {
+            return normalized + ".0";
+        }
+
+        // Try to extract major version number
+        String[] parts = normalized.split("\\.");
+        if (parts.length > 0 && parts[0].matches("^\\d+$")) {
+            return parts[0] + ".0";
+        }
+
+        // Default to 1.0 if we can't parse
+        log.warn("Could not normalize version '{}', defaulting to 1.0", version);
+        return "1.0";
     }
 
     private int getPageCountFromPdf(File file) throws IOException {
