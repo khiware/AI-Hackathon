@@ -46,7 +46,9 @@ class DocumentProcessingServiceTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(documentProcessingService, "documentStoragePath", "./test-documents");
+        // Use test resources folder for document storage during tests
+        String testResourcePath = "src/test/resources/test-documents";
+        ReflectionTestUtils.setField(documentProcessingService, "documentStoragePath", testResourcePath);
     }
 
     @Test
