@@ -366,10 +366,13 @@ public class QuestionAnsweringService {
     }
 
     private AskResponse buildCachedResponse(AskResponse response, long totalTime) {
+        // Check if cached answer is unclear - if so, remove citations
+        boolean isUnclear = isAnswerUnclear(response.getAnswer());
+
         return AskResponse.builder()
                 .answer(response.getAnswer())
-                .citations(response.getCitations())
-                .confidence(response.getConfidence())
+                .citations(isUnclear ? List.of() : response.getCitations())
+                .confidence(isUnclear ? 0.0 : response.getConfidence())
                 .cached(true)  // Mark as cached
                 .needsClarification(response.getNeedsClarification())
                 .clarificationQuestion(response.getClarificationQuestion())
@@ -388,6 +391,30 @@ public class QuestionAnsweringService {
                 .needsClarification(false)
                 .responseTimeMs(responseTime)
                 .build();
+    }
+
+    /**
+     * Check if the answer indicates unclear or missing information
+     */
+    private boolean isAnswerUnclear(String answer) {
+        if (answer == null || answer.trim().isEmpty()) {
+            return true;
+        }
+
+        String lowerAnswer = answer.toLowerCase().trim();
+
+        // Check for common phrases indicating unclear/missing information
+        return lowerAnswer.contains("couldn't find") ||
+               lowerAnswer.contains("could not find") ||
+               lowerAnswer.contains("no clear policy") ||
+               lowerAnswer.contains("no information") ||
+               lowerAnswer.contains("not available") ||
+               lowerAnswer.contains("please check with hr") ||
+               lowerAnswer.contains("submit a ticket") ||
+               lowerAnswer.contains("i don't have") ||
+               lowerAnswer.contains("unable to find") ||
+               lowerAnswer.contains("no specific") ||
+               lowerAnswer.contains("documents don't contain");
     }
 
     private AskResponse buildErrorResponse(String message) {
