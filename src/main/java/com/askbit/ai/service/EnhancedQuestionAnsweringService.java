@@ -88,10 +88,33 @@ public class EnhancedQuestionAnsweringService {
                     System.currentTimeMillis() - startTime);
         }
 
-        // Check if question needs clarification
-        if (clarificationService.needsClarification(question)) {
+        // Handle clarification flow:
+        // If user provided context (responding to a clarification question), expand the question
+        if (request.getContext() != null && !request.getContext().trim().isEmpty()) {
+            log.info("User provided clarification context: {}", request.getContext());
+            question = clarificationService.expandQuestionWithContext(question, request.getContext());
+            log.info("Expanded question: {}", question);
+
+            // ITERATIVE CLARIFICATION: Check if the expanded question still needs clarification
+            if (clarificationService.needsClarification(question)) {
+                String clarificationQuestion = clarificationService
+                        .generateClarificationQuestion(question);
+
+                log.info("Expanded question still needs clarification: {}", question);
+
+                return AskResponse.builder()
+                        .clarificationQuestion(clarificationQuestion)
+                        .needsClarification(true)
+                        .responseTimeMs(System.currentTimeMillis() - startTime)
+                        .build();
+            }
+        }
+        // Otherwise, check if question needs clarification (first pass)
+        else if (clarificationService.needsClarification(question)) {
             String clarificationQuestion = clarificationService
                     .generateClarificationQuestion(question);
+
+            log.info("Question needs clarification: {}", question);
 
             return AskResponse.builder()
                     .clarificationQuestion(clarificationQuestion)
