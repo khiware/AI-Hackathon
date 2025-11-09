@@ -73,6 +73,22 @@ public class QuestionAnsweringService {
         // Track if user provided clarification context
         boolean wasClarified = request.getContext() != null && !request.getContext().trim().isEmpty();
 
+        // Try to get from Redis cache first
+        String cacheKey = "queries::" + normalizedQuestion;
+        AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
+
+        // Keep cached answer text for potential failover (even if returning cached response now)
+        String cachedAnswerText = (cachedResponse != null) ? cachedResponse.getAnswer() : null;
+
+        if (cachedResponse != null) {
+            cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
+            AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
+                    System.currentTimeMillis() - startTime);
+            saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
+                    newCachedResponse.getModelUsed(), wasClarified);
+            return newCachedResponse;
+        }
+
         // Handle clarification flow:
         // If user provided context (responding to a clarification question), expand the question
         if (wasClarified) {
@@ -107,21 +123,6 @@ public class QuestionAnsweringService {
                     .needsClarification(true)
                     .responseTimeMs(System.currentTimeMillis() - startTime)
                     .build();
-        }
-
-        // Try to get from Redis cache first
-        String cacheKey = "queries::" + normalizedQuestion;
-        AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
-
-        // Keep cached answer text for potential failover (even if returning cached response now)
-        String cachedAnswerText = (cachedResponse != null) ? cachedResponse.getAnswer() : null;
-
-        if (cachedResponse != null) {
-            cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
-            AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
-                    System.currentTimeMillis() - startTime);
-            saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
-                    newCachedResponse.getModelUsed(), wasClarified);
         }
 
         // Retrieve relevant document chunks using Hybrid Search
