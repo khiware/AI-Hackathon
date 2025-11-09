@@ -192,7 +192,7 @@ public class ClarificationService {
 
     public String expandQuestionWithContext(String originalQuestion, String clarification) {
         // Combine original question with clarification context
-        return originalQuestion + " (specifically about: " + clarification + ")";
+        return originalQuestion.isEmpty() ?  "specifically about " + clarification:originalQuestion + " (specifically about: " + clarification + ")";
     }
 }
 
