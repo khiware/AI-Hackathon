@@ -1,8 +1,107 @@
 # AskBit.AI - AI-Powered Internal Policy Copilot
 
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Technical Approach](#-technical-approach)
+- [Architecture](#️-architecture)
+- [Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Step-by-Step Execution Guide](#-step-by-step-execution-guide)
+- [Troubleshooting](#-troubleshooting)
+- [Usage](#-usage)
+  - [Web UI](#web-ui)
+  - [REST API Examples](#rest-api-examples)
+- [Project Structure](#-project-structure)
+- [Dependencies](#-dependencies)
+- [Configuration](#️-configuration)
+- [Security Features](#-security-features)
+- [Advanced Features](#-advanced-features)
+- [Monitoring & Observability](#-monitoring--observability)
+- [Testing](#-testing)
+- [Deployment](#-deployment)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+- [Support](#-support)
+- [Version History](#-version-history)
+
 ## 🎯 Overview
 
-AskBit.AI is an intelligent internal policy copilot that answers employee questions about company policies, processes, and FAQs — accurately, securely, and fast — using only your organization's official documents.
+### Build AskBit.AI - An Intelligent Internal Policy Copilot
+
+AskBit.AI is an intelligent internal policy copilot that answers employee questions about company policies, processes, and FAQs — **accurately, securely, and fast** — using only your organization's official documents.
+
+### The Problem
+
+Organizations face significant challenges in making internal policies accessible to employees:
+- **Information Overload**: Employees struggle to find relevant information across hundreds of policy documents
+- **Time Wastage**: HR teams spend countless hours answering repetitive questions
+- **Outdated Information**: Employees often reference old policy versions, leading to compliance issues
+- **Inconsistent Answers**: Different team members provide conflicting information
+- **Security Concerns**: Sensitive company information needs protection
+
+### Our Solution
+
+The system delivers:
+
+✅ **Grounded Answers with Citations** - All answers are based on real documents with page-level citations
+
+✅ **No Hallucination** - Never fabricates information; declines or asks for clarification when unsure
+
+✅ **Cost-Efficient & Resilient** - Intelligent caching and multi-LLM failover for optimal cost and reliability
+
+✅ **PII Protection** - Automatic detection and redaction of sensitive information in prompts and responses
+
+✅ **Performance Optimized** - Caches popular answers and asks clarifying questions when needed
+
+### Business Impact
+
+- 🎯 **Reduce policy-related support tickets** by providing instant self-service answers
+- ⚡ **Cut query resolution time by 40–50%** compared to traditional methods
+- 📈 **Improve employee productivity** by eliminating time spent searching for policies
+- 🔒 **Ensure compliance** with accurate, version-tracked policy information
+
+## ⚡ Quick Start
+
+Get AskBit.AI running in 5 minutes:
+
+```bash
+# 1. Set up database (PostgreSQL with pgvector)
+createdb askbitdb
+psql -d askbitdb -c "CREATE EXTENSION vector;"
+
+# 2. Start Redis
+redis-server
+
+# 3. Set your OpenAI API key
+export OPENAI_API_KEY=sk-your-key-here  # Linux/Mac
+set OPENAI_API_KEY=sk-your-key-here     # Windows
+
+# 4. Update database credentials in src/main/resources/application.properties
+
+# 5. Build and run
+./gradlew bootRun    # Linux/Mac
+gradlew.bat bootRun  # Windows
+
+# 6. Access the application
+# Open http://localhost:8080 in your browser
+```
+
+**First Steps:**
+1. Upload a document at http://localhost:8080/admin.html
+2. Ask questions at http://localhost:8080/index.html
+3. Get instant, grounded answers with citations!
+
+**Quick Testing:**
+Run the automated end-to-end test script to verify everything is working:
+```bash
+test-askbitai.bat    # Windows
+./test-askbitai.sh   # Linux/macOS
+```
+See the [Testing](#-testing) section for detailed information.
 
 ## ✨ Features
 
@@ -19,6 +118,88 @@ AskBit.AI is an intelligent internal policy copilot that answers employee questi
 - ✅ **Model Router** - Smart LLM selection with automatic failover
 - ✅ **Graceful Degradation** - Continues working even when primary model fails
 - ✅ **Observability** - Track metrics, latency, cache hit rate, and more
+
+## 🧠 Technical Approach
+
+### Overview
+AskBit.AI implements a **Retrieval-Augmented Generation (RAG)** system with advanced features for enterprise deployment. The system is designed to provide accurate, grounded answers to employee questions using only company-approved documents.
+
+### Key Design Decisions
+
+#### 1. **Document Processing Pipeline**
+- **Chunking Strategy**: Documents are split into semantic chunks (500-1000 tokens) with 100-token overlap to preserve context
+- **Multi-format Support**: Uses Apache Tika for universal document parsing (PDF, DOCX, TXT, MD)
+- **Vector Embeddings**: Each chunk is converted to a 1536-dimensional vector using OpenAI's `text-embedding-3-small` model
+- **Storage**: Vectors stored in PostgreSQL with pgvector extension for efficient similarity search
+
+#### 2. **Hybrid Retrieval System**
+Combines two search strategies for optimal results:
+- **Vector Similarity Search (70% weight)**: Semantic understanding using cosine similarity
+- **Keyword/BM25 Search (30% weight)**: Exact term matching for technical terms and acronyms
+- **Fusion Algorithm**: RRF (Reciprocal Rank Fusion) combines results from both methods
+
+#### 3. **Intelligent Model Routing**
+Multi-tier failover system for reliability:
+```
+GPT-4 Turbo (Primary)
+    ↓ (on timeout/error)
+GPT-3.5 Turbo (Secondary)
+    ↓ (on failure)
+Redis Cache (Cached responses)
+    ↓ (on cache miss)
+Graceful Error Message
+```
+
+#### 4. **Query Processing Pipeline**
+1. **Preprocessing**: Normalize text, fix spelling, expand abbreviations
+2. **PII Detection**: Identify and redact sensitive information
+3. **Temporal Analysis**: Extract version/date requirements
+4. **Clarification Check**: Determine if query is ambiguous
+5. **Retrieval**: Fetch relevant chunks using hybrid search
+6. **Generation**: Create grounded answer with citations
+7. **Validation**: Ensure answer is supported by retrieved context
+
+#### 5. **Caching Strategy**
+- **L1 Cache**: Spring Cache with Redis backend (2-hour TTL)
+- **Cache Key**: Hash of (question + context + version)
+- **Invalidation**: Automatic on document updates, manual via admin API
+- **Stats Tracking**: Hit rate, size, most cached queries
+
+#### 6. **Security & Privacy**
+- **PII Redaction**: Regex-based detection of emails, SSNs, phone numbers, etc.
+- **Query Sanitization**: Remove malicious input before processing
+- **No PII Logging**: Sensitive data never written to logs
+- **Document Access Control**: Only indexed documents are searchable
+
+### Technology Stack
+
+**Backend Framework:**
+- Spring Boot 3.2.0 (Java 17)
+- Spring AI 1.0.0-M3 for LLM integration
+- Spring Data JPA for database operations
+
+**AI/ML Components:**
+- OpenAI GPT-4 Turbo (primary model)
+- OpenAI text-embedding-3-small (embeddings)
+- Custom hybrid search implementation
+
+**Database:**
+- PostgreSQL 12+ with pgvector extension
+- Vector similarity search using cosine distance
+
+**Caching:**
+- Redis 6+ with Lettuce client
+- Spring Cache abstraction
+
+**Document Processing:**
+- Apache PDFBox 3.0.1 (PDF parsing)
+- Apache POI 5.2.5 (Office documents)
+- Apache Tika 2.9.1 (universal parser)
+
+**Build & Deployment:**
+- Gradle 8.x
+- Spring Boot Actuator for monitoring
+- Docker support
 
 ## 🏗️ Architecture
 
@@ -354,6 +535,75 @@ spring.jpa.hibernate.ddl-auto=update
 askbit.ai.document.storage-path=./documents
 ```
 
+### Environment Variables
+
+The following environment variables can be used to configure the application:
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `OPENAI_API_KEY` | OpenAI API key for GPT-4 and embeddings | None | **Yes** |
+| `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/askbitdb` | No |
+| `SPRING_DATASOURCE_USERNAME` | Database username | `postgres` | No |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | None | **Yes** |
+| `SPRING_REDIS_HOST` | Redis server hostname | `127.0.0.1` | No |
+| `SPRING_REDIS_PORT` | Redis server port | `6379` | No |
+| `SPRING_REDIS_PASSWORD` | Redis password (if required) | Empty | No |
+| `SERVER_PORT` | Application HTTP port | `8080` | No |
+
+**Setting environment variables:**
+
+Windows (Command Prompt):
+```cmd
+set OPENAI_API_KEY=sk-your-key
+set SPRING_DATASOURCE_PASSWORD=your-db-password
+```
+
+Windows (PowerShell):
+```powershell
+$env:OPENAI_API_KEY="sk-your-key"
+$env:SPRING_DATASOURCE_PASSWORD="your-db-password"
+```
+
+Linux/Mac:
+```bash
+export OPENAI_API_KEY=sk-your-key
+export SPRING_DATASOURCE_PASSWORD=your-db-password
+```
+
+**Using .env file (recommended for development):**
+
+Create a `.env` file in the project root:
+```properties
+OPENAI_API_KEY=sk-your-actual-api-key
+SPRING_DATASOURCE_PASSWORD=your-database-password
+SPRING_REDIS_PASSWORD=your-redis-password
+```
+
+**Note:** Never commit `.env` files or `application.properties` with secrets to version control!
+
+### Configuration Profiles
+
+The application supports Spring Boot profiles for different environments:
+
+**Development (default):**
+```properties
+# src/main/resources/application.properties
+spring.profiles.active=dev
+```
+
+**Production:**
+```properties
+# src/main/resources/application-prod.properties
+spring.jpa.show-sql=false
+logging.level.com.askbit=INFO
+askbit.ai.cache.ttl-seconds=7200
+```
+
+Activate profile:
+```bash
+./gradlew bootRun --args='--spring.profiles.active=prod'
+```
+
 ## 🔒 Security Features
 
 ### PII Protection
@@ -432,6 +682,8 @@ Identify common queries at `/api/v1/admin/top-questions`:
 
 ## 🧪 Testing
 
+### Unit & Integration Tests
+
 Run all tests:
 ```bash
 ./gradlew test
@@ -441,6 +693,65 @@ Run with coverage:
 ```bash
 ./gradlew test jacocoTestReport
 ```
+
+### End-to-End Testing
+
+The project includes automated end-to-end test scripts that verify the complete system functionality, including document upload, question answering, caching, and admin endpoints.
+
+#### Test Scripts Available
+
+- **`test-askbitai.bat`** - Windows batch script
+- **`test-askbitai.sh`** - Linux/macOS bash script
+
+#### What the Scripts Test
+
+1. ✅ Health endpoint verification
+2. ✅ Document upload functionality
+3. ✅ Document listing
+4. ✅ Policy-specific questions:
+   - "What should I do if I'm feeling unwell but scheduled to work in the office?"
+   - "When will Variable Pay be typically paid?"
+   - "How can employees maximize their Progressive Variable Pay?"
+   - "How to track my compliance?"
+5. ✅ Cache performance (re-asking same question)
+6. ✅ System metrics retrieval
+7. ✅ Top questions analytics
+8. ✅ Cache statistics
+
+#### How to Run
+
+**Prerequisites:**
+- Application running on `http://localhost:8080`
+- Sample document available at `sample-docs/test-policy.pdf`
+- `curl` installed on your system
+
+**Windows:**
+```cmd
+test-askbitai.bat
+```
+
+**Linux/macOS:**
+```bash
+# Make the script executable (first time only)
+chmod +x test-askbitai.sh
+
+# Run the script
+./test-askbitai.sh
+```
+
+**Note:** For better JSON formatting on Windows, you can install `jq` and modify the script to use `| jq` instead of removing the `json_pp` calls.
+
+#### Expected Output
+
+The script will:
+1. Display formatted test results for each endpoint
+2. Show response times and data
+3. Verify caching is working (second identical query should be faster)
+4. Display system metrics and statistics
+
+#### Customizing Tests
+
+To test with your own questions, edit the script files and modify the curl commands in the "Testing Specific Policy Questions" section.
 
 ## 🚢 Deployment
 
@@ -499,10 +810,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- Built with **Spring AI** framework
-- Powered by **OpenAI GPT-4**
-- Vector search with **pgvector** extension
-- Caching with **Redis**
+- Built with **Spring Boot 3.2.0** and **Spring AI 1.0.0-M3**
+- Powered by **OpenAI GPT-4 Turbo**
+- Vector search with **pgvector** extension for PostgreSQL
+- Caching with **Redis** (using Lettuce client)
+- Document processing with **Apache PDFBox**, **Apache POI**, and **Apache Tika**
 
 ## 📧 Support
 
