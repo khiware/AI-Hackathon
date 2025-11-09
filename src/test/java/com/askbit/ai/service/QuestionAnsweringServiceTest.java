@@ -1,7 +1,9 @@
 package com.askbit.ai.service;
 
+import com.askbit.ai.analyzer.TemporalQueryAnalyzer;
 import com.askbit.ai.dto.AskRequest;
 import com.askbit.ai.dto.AskResponse;
+import com.askbit.ai.dto.TemporalContext;
 import com.askbit.ai.repository.DocumentRepository;
 import com.askbit.ai.repository.QueryHistoryRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -99,7 +101,7 @@ class QuestionAnsweringServiceTest {
         lenient().when(queryPreprocessingService.preprocessQuestion(anyString())).thenReturn("Hello");
         lenient().when(piiRedactionService.redactPii(anyString())).thenAnswer(i -> i.getArguments()[0]);
         lenient().when(temporalQueryAnalyzer.analyzeQuestion(anyString()))
-                .thenReturn(TemporalQueryAnalyzer.TemporalContext.latest());
+                .thenReturn(TemporalContext.latest());
 
         // Act
         AskResponse response = questionAnsweringService.answerQuestion(request);
@@ -119,7 +121,7 @@ class QuestionAnsweringServiceTest {
         lenient().when(piiRedactionService.redactPii(anyString())).thenAnswer(i -> i.getArguments()[0]);
         lenient().when(clarificationService.needsClarification(anyString())).thenReturn(false);
         lenient().when(temporalQueryAnalyzer.analyzeQuestion(anyString()))
-                .thenReturn(TemporalQueryAnalyzer.TemporalContext.latest());
+                .thenReturn(TemporalContext.latest());
         lenient().when(cacheService.getFromCache(anyString())).thenReturn(null);
         lenient().when(hybridRetrievalService.hybridSearchWithVersionFilter(anyString(), anyInt(), any()))
                 .thenReturn(Collections.emptyList());
@@ -146,7 +148,7 @@ class QuestionAnsweringServiceTest {
                 .thenReturn("My email is [EMAIL]");
         lenient().when(clarificationService.needsClarification(anyString())).thenReturn(false);
         lenient().when(temporalQueryAnalyzer.analyzeQuestion(anyString()))
-                .thenReturn(TemporalQueryAnalyzer.TemporalContext.latest());
+                .thenReturn(TemporalContext.latest());
         lenient().when(cacheService.getFromCache(anyString())).thenReturn(null);
         lenient().when(hybridRetrievalService.hybridSearchWithVersionFilter(anyString(), anyInt(), any()))
                 .thenReturn(Collections.emptyList());
@@ -173,7 +175,7 @@ class QuestionAnsweringServiceTest {
         when(clarificationService.generateClarificationQuestion("Tell me about PTO"))
                 .thenReturn("Are you asking about vacation PTO or sick PTO?");
         lenient().when(temporalQueryAnalyzer.analyzeQuestion(anyString()))
-                .thenReturn(TemporalQueryAnalyzer.TemporalContext.latest());
+                .thenReturn(TemporalContext.latest());
         lenient().when(cacheService.getFromCache(anyString())).thenReturn(null);
 
         // Act

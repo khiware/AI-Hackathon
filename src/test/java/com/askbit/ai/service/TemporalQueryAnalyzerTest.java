@@ -1,6 +1,7 @@
 package com.askbit.ai.service;
 
-import com.askbit.ai.service.TemporalQueryAnalyzer.TemporalContext;
+import com.askbit.ai.analyzer.TemporalQueryAnalyzer;
+import com.askbit.ai.dto.TemporalContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
