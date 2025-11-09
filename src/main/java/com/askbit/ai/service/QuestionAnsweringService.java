@@ -247,11 +247,13 @@ public class QuestionAnsweringService {
                 .build();
 
         // Save to query history for analytics
-        saveQueryHistory(normalizedQuestion, originalQuestion, response,
-                modelResponse.getModelUsed(), false, null);
+        saveQueryHistory(originalQuestion.equals(question) ? normalizedQuestion : question,
+                originalQuestion, response, modelResponse.getModelUsed(),
+                false, null);
 
         // Store in Redis cache with 1-day TTL
-        cacheService.saveToCache(cacheKey, response);
+        cacheService.saveToCache(originalQuestion.equals(question) ? cacheKey : "queries::" + question,
+                response);
 
         return response;
     }
