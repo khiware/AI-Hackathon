@@ -1,4 +1,4 @@
-addpackage com.askbit.ai.service;
+package com.askbit.ai.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
