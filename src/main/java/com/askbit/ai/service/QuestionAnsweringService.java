@@ -74,6 +74,22 @@ public class QuestionAnsweringService {
         // Track if user provided clarification context
         boolean wasClarified = request.getContext() != null && !request.getContext().trim().isEmpty();
 
+        // Try to get from Redis cache first
+        String cacheKey = "queries::" + normalizedQuestion;
+        AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
+
+        // Keep cached answer text for potential failover (even if returning cached response now)
+        String cachedAnswerText = (cachedResponse != null) ? cachedResponse.getAnswer() : null;
+
+        if (cachedResponse != null) {
+            cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
+            AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
+                    System.currentTimeMillis() - startTime);
+            saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
+                    newCachedResponse.getModelUsed(), wasClarified);
+            return newCachedResponse;
+        }
+
         // TEMPORAL ANALYSIS: Analyze question for version/year context
         TemporalQueryAnalyzer.TemporalContext temporalContext =
                 temporalQueryAnalyzer.analyzeQuestion(question);
@@ -87,7 +103,6 @@ public class QuestionAnsweringService {
                     .responseTimeMs(System.currentTimeMillis() - startTime)
                     .build();
         }
-
         // Handle clarification flow:
         // If user provided context (responding to a clarification question), expand the question
         if (wasClarified) {
@@ -134,23 +149,6 @@ public class QuestionAnsweringService {
 
         log.info("Version filter applied - Latest: {}, Year: {}",
                 temporalContext.isUseLatestVersion(), targetYear);
-
-        // Try to get from Redis cache first
-        String cacheKey = "queries::" + normalizedQuestion + "::" +
-                (targetYear != null ? targetYear : "latest");
-        AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
-
-        // Keep cached answer text for potential failover (even if returning cached response now)
-        String cachedAnswerText = (cachedResponse != null) ? cachedResponse.getAnswer() : null;
-
-        if (cachedResponse != null) {
-            cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
-            AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
-                    System.currentTimeMillis() - startTime);
-            saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
-                    newCachedResponse.getModelUsed(), wasClarified);
-            return newCachedResponse;
-        }
 
         // Retrieve relevant document chunks using Hybrid Search WITH VERSION FILTER
         List<DocumentChunk> chunks;

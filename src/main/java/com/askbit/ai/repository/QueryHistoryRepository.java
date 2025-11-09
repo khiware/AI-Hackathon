@@ -11,26 +11,19 @@ import java.util.Optional;
 
 @Repository
 public interface QueryHistoryRepository extends JpaRepository<QueryHistory, Long> {
-    Optional<QueryHistory> findByNormalizedQuestion(String normalizedQuestion);
-
-    List<QueryHistory> findByQueryTimeBetween(LocalDateTime start, LocalDateTime end);
-
-    @Query("SELECT AVG(qh.responseTimeMs) FROM QueryHistory qh")
+    @Query("SELECT AVG(qh.responseTimeMs) FROM QueryHistory qh WHERE qh.modelUsed != 'cached'")
     Double findAverageResponseTime();
 
-    @Query("SELECT CASE WHEN (SELECT COUNT(qh2) FROM QueryHistory qh2) = 0 THEN 0.0 ELSE COUNT(qh) * 100.0 / (SELECT COUNT(qh2) FROM QueryHistory qh2) END FROM QueryHistory qh WHERE qh.fromCache = true")
-    Double findCacheHitRate();
-
-    @Query("SELECT AVG(qh.confidence) FROM QueryHistory qh")
+    @Query("SELECT AVG(qh.confidence) FROM QueryHistory qh WHERE qh.modelUsed != 'cached'")
     Double findAverageConfidence();
 
     @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.piiRedacted = true")
     Long countPiiRedactions();
 
-    @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.clarificationAsked = true")
+    @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.clarificationAsked = true AND qh.modelUsed != 'cached'")
     Long countClarifications();
 
-    @Query("SELECT qh.modelUsed, COUNT(qh) as count FROM QueryHistory qh GROUP BY qh.modelUsed ORDER BY count DESC")
+    @Query("SELECT qh.modelUsed, COUNT(qh) as count FROM QueryHistory qh WHERE qh.modelUsed != 'cached' GROUP BY qh.modelUsed ORDER BY count DESC")
     List<Object[]> findModelUsageStats();
 
     @Query("SELECT qh.normalizedQuestion, COUNT(qh) as count, AVG(qh.confidence) as avgConfidence, MAX(qh.queryTime) as lastAsked " +
@@ -40,14 +33,11 @@ public interface QueryHistoryRepository extends JpaRepository<QueryHistory, Long
     List<Object[]> findTopQuestions();
 
     // Get all response times sorted for p95 calculation
-    @Query("SELECT qh.responseTimeMs FROM QueryHistory qh WHERE qh.responseTimeMs IS NOT NULL ORDER BY qh.responseTimeMs DESC")
+    @Query("SELECT qh.responseTimeMs FROM QueryHistory qh WHERE qh.responseTimeMs IS NOT NULL AND qh.modelUsed != 'cached' ORDER BY qh.responseTimeMs DESC")
     List<Long> findAllResponseTimesSorted();
 
-    @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.fromCache = true")
-    Long countCacheHits();
-
-    @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.fromCache = false")
-    Long countCacheMisses();
+    @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.modelUsed != 'cached'")
+    Long countModelHitQueries();
 }
 
 

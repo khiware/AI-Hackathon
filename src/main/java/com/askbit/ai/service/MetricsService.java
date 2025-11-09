@@ -22,7 +22,10 @@ public class MetricsService {
     private final CacheService cacheService;
 
     public MetricsResponse getMetrics() {
-        Long totalQueries = queryHistoryRepository.count();
+        // Count only model-hit queries (exclude cached queries)
+        Long totalQueriesLong = queryHistoryRepository.countModelHitQueries();
+        long totalQueries = totalQueriesLong != null ? totalQueriesLong : 0L;
+
         Double avgResponseTime = queryHistoryRepository.findAverageResponseTime();
         Double p95Latency = calculateP95Latency();
         Double cacheHitRate = calculateCacheHitRate();
