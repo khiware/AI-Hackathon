@@ -41,7 +41,7 @@ public class QuestionAnsweringService {
     @Value("${askbit.ai.use-hybrid-search:true}")
     private boolean useHybridSearch;
 
-    @Value("${askbit.ai.max-retrieval-results:1}")
+    @Value("${askbit.ai.max-retrieval-results:5}")
     private int maxRetrievalResults;
 
     /**
@@ -70,11 +70,38 @@ public class QuestionAnsweringService {
         // Normalize question for caching
         String normalizedQuestion = normalizeQuestion(question);
 
-        // Check if question needs clarification
-        if (clarificationService.needsClarification(question)) {
+        // Track if user provided clarification context
+        boolean wasClarified = request.getContext() != null && !request.getContext().trim().isEmpty();
+
+        // Handle clarification flow:
+        // If user provided context (responding to a clarification question), expand the question
+        if (wasClarified) {
+            log.info("User provided clarification context: {}", request.getContext());
+            question = clarificationService.expandQuestionWithContext(question, request.getContext());
+            log.info("Expanded question: {}", question);
+
+            // ITERATIVE CLARIFICATION: Check if the expanded question still needs clarification
+            if (clarificationService.needsClarification(question)) {
+                String clarificationQuestion = clarificationService
+                        .generateClarificationQuestion(question);
+
+                log.info("Expanded question still needs clarification: {}", question);
+
+                return AskResponse.builder()
+                        .clarificationQuestion(clarificationQuestion)
+                        .needsClarification(true)
+                        .responseTimeMs(System.currentTimeMillis() - startTime)
+                        .build();
+            }
+        }
+        // Otherwise, check if question needs clarification (first pass)
+        else if (clarificationService.needsClarification(question)) {
             String clarificationQuestion = clarificationService
                     .generateClarificationQuestion(question);
 
+            log.info("Question needs clarification: {}", question);
+
+            // Don't save to history yet - wait for user's clarified response
             return AskResponse.builder()
                     .clarificationQuestion(clarificationQuestion)
                     .needsClarification(true)
@@ -85,10 +112,16 @@ public class QuestionAnsweringService {
         // Try to get from Redis cache first
         String cacheKey = "queries::" + normalizedQuestion;
         AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
+
+        // Keep cached answer text for potential failover (even if returning cached response now)
+        String cachedAnswerText = (cachedResponse != null) ? cachedResponse.getAnswer() : null;
+
         if (cachedResponse != null) {
             cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
-            return buildCachedResponse(cachedResponse,
+            AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
                     System.currentTimeMillis() - startTime);
+            saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
+                    newCachedResponse.getModelUsed(), wasClarified);
         }
 
         // Retrieve relevant document chunks using Hybrid Search
@@ -119,13 +152,12 @@ public class QuestionAnsweringService {
         // Build prompt for LLM
         String prompt = buildPrompt(question, context);
 
-        // Get response from model
+        // Get response from model with failover support (pass cached answer if available)
         ModelRouterService.ModelResponse modelResponse =
-                modelRouterService.generateResponse(prompt);
+                modelRouterService.generateResponseWithFailover(prompt, cachedAnswerText);
 
-        if (!modelResponse.getSuccess()) {
-            return buildErrorResponse("Failed to generate answer. Please try again.");
-        }
+        // Note: failover mechanism will return success=true with fallback message if needed
+        // So we don't need to check for failure here - just use the content
 
         // Redact PII from answer
         String answer = piiRedactionService.redactPii(modelResponse.getContent());
@@ -151,7 +183,7 @@ public class QuestionAnsweringService {
 
         // Save to query history for analytics
         saveQueryHistory(normalizedQuestion, originalQuestion, response,
-                modelResponse.getModelUsed());
+                modelResponse.getModelUsed(), wasClarified);
 
         // Store in Redis cache with 1-day TTL
         cacheService.saveToCache(cacheKey, response);
@@ -369,7 +401,7 @@ public class QuestionAnsweringService {
     }
 
     private void saveQueryHistory(String normalizedQuestion, String originalQuestion,
-                                  AskResponse response, String modelUsed) {
+                                   AskResponse response, String modelUsed, boolean clarificationAsked) {
         try {
             String citationsJson = objectMapper.writeValueAsString(response.getCitations());
 
@@ -383,7 +415,7 @@ public class QuestionAnsweringService {
                     .modelUsed(modelUsed)
                     .citationsJson(citationsJson)
                     .piiRedacted(response.getPiiRedacted())
-                    .clarificationAsked(false)
+                    .clarificationAsked(clarificationAsked)
                     .build();
 
             queryHistoryRepository.save(queryHistory);

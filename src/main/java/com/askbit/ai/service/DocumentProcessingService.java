@@ -499,19 +499,16 @@ public class DocumentProcessingService {
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
     }
 
-    public Document getDocument(Long id) {
-        return documentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + id));
-    }
-
     @Transactional
     public void deleteDocument(Long id) {
-        Document document = getDocument(id);
-        document.setActive(false);
-        documentRepository.save(document);
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + id));
 
         // Delete chunks
         documentChunkRepository.deleteByDocumentId(document.getDocumentId());
+
+        // Delete document
+        documentRepository.deleteById(id);
 
         log.info("Document deleted: {}", id);
     }

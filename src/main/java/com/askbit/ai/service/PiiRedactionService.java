@@ -26,7 +26,7 @@ public class PiiRedactionService {
 
         // Phone number patterns (US and International)
         PII_PATTERNS.put("PHONE", Pattern.compile(
-            "\\b(?:\\+?1[-.]?)?\\(?([0-9]{3})\\)?[-.]?([0-9]{3})[-.]?([0-9]{4})\\b|\\b\\+?[0-9]{1,3}[-.]?[0-9]{3,14}\\b"
+            "\\b\\(?([0-9]{3})\\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})\\b"
         ));
 
         // Social Security Number (US)

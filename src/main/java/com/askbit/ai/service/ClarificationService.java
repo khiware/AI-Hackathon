@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.regex.Pattern;
 
 @Service
 @Slf4j
@@ -19,7 +18,17 @@ public class ClarificationService {
                 "full-time employees in the US",
                 "part-time employees",
                 "contractors",
-                "international employees"
+                "international employees",
+                "PTO accrual rates",
+                "PTO carryover policy"
+        ));
+
+        AMBIGUOUS_TERMS.put("leave", List.of(
+                "vacation leave",
+                "sick leave",
+                "parental leave",
+                "bereavement leave",
+                "unpaid leave"
         ));
 
         AMBIGUOUS_TERMS.put("vacation", List.of(
@@ -33,7 +42,8 @@ public class ClarificationService {
                 "travel expenses",
                 "equipment expenses",
                 "meal expenses",
-                "training expenses"
+                "training expenses",
+                "relocation expenses"
         ));
 
         AMBIGUOUS_TERMS.put("remote work", List.of(
@@ -47,7 +57,30 @@ public class ClarificationService {
                 "health insurance",
                 "retirement benefits",
                 "stock options",
-                "education benefits"
+                "education benefits",
+                "wellness benefits"
+        ));
+
+        AMBIGUOUS_TERMS.put("policy", List.of(
+                "HR policies",
+                "IT security policies",
+                "expense policies",
+                "work-from-home policies",
+                "leave policies"
+        ));
+
+        AMBIGUOUS_TERMS.put("work hours", List.of(
+                "standard office hours",
+                "flexible hours",
+                "overtime policy",
+                "weekend work"
+        ));
+
+        AMBIGUOUS_TERMS.put("compensation", List.of(
+                "salary structure",
+                "bonuses and incentives",
+                "stock options",
+                "raises and promotions"
         ));
 
         // Vague question patterns
@@ -55,6 +88,8 @@ public class ClarificationService {
         VAGUE_QUESTIONS.add("tell me about");
         VAGUE_QUESTIONS.add("how does it work");
         VAGUE_QUESTIONS.add("can you explain");
+        VAGUE_QUESTIONS.add("what are the rules");
+        VAGUE_QUESTIONS.add("how do i");
     }
 
     public boolean needsClarification(String question) {
