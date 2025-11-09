@@ -1,5 +1,6 @@
 package com.askbit.ai.service;
 
+import com.askbit.ai.dto.ChunkScore;
 import com.askbit.ai.dto.Citation;
 import com.askbit.ai.model.Document;
 import com.askbit.ai.model.DocumentChunk;
@@ -169,21 +170,6 @@ public class RetrievalService {
         }
 
         return context.toString();
-    }
-
-    // Inner class to hold chunk with similarity score
-    @RequiredArgsConstructor
-    private static class ChunkScore {
-        private final DocumentChunk chunk;
-        private final double score;
-
-        public DocumentChunk getChunk() {
-            return chunk;
-        }
-
-        public double getScore() {
-            return score;
-        }
     }
 }
 

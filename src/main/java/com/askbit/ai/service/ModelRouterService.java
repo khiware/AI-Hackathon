@@ -1,6 +1,6 @@
 package com.askbit.ai.service;
 
-import lombok.Data;
+import com.askbit.ai.dto.ModelResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -266,19 +266,6 @@ public class ModelRouterService {
 
     public boolean isLatencyAcceptable(long responseTimeMs) {
         return responseTimeMs <= latencyThresholdMs;
-    }
-
-    @Data
-    @lombok.Builder
-    public static class ModelResponse {
-        private final String content;
-        private final String modelUsed;
-        private final Long responseTimeMs;
-        private final Boolean fromCache;
-        private final Boolean success;
-        private final String error;
-        private final Boolean failoverUsed;
-        private final String failoverReason;
     }
 }
 

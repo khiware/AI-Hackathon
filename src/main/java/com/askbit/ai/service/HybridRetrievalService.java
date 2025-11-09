@@ -1,5 +1,6 @@
 package com.askbit.ai.service;
 
+import com.askbit.ai.dto.ScoredChunk;
 import com.askbit.ai.model.Document;
 import com.askbit.ai.model.DocumentChunk;
 import com.askbit.ai.repository.DocumentChunkRepository;
@@ -115,7 +116,7 @@ public class HybridRetrievalService {
                     );
                     return new ScoredChunk(chunk, similarity, 0.0);
                 })
-                .sorted(Comparator.comparingDouble(sc -> -sc.vectorScore))
+                .sorted(Comparator.comparingDouble(sc -> -sc.getVectorScore()))
                 .limit(limit)
                 .collect(Collectors.toList());
     }
@@ -136,8 +137,8 @@ public class HybridRetrievalService {
                     double keywordScore = calculateKeywordScore(chunk.getContent(), keywords);
                     return new ScoredChunk(chunk, 0.0, keywordScore);
                 })
-                .filter(sc -> sc.keywordScore > 0)
-                .sorted(Comparator.comparingDouble(sc -> -sc.keywordScore))
+                .filter(sc -> sc.getKeywordScore() > 0)
+                .sorted(Comparator.comparingDouble(sc -> -sc.getKeywordScore()))
                 .limit(limit)
                 .collect(Collectors.toList());
     }
@@ -154,15 +155,15 @@ public class HybridRetrievalService {
 
         // Add vector results
         for (ScoredChunk sc : vectorResults) {
-            combinedResults.put(sc.chunk.getId(), sc);
+            combinedResults.put(sc.getChunk().getId(), sc);
         }
 
         // Merge with keyword results
         for (ScoredChunk sc : keywordResults) {
-            Long id = sc.chunk.getId();
+            Long id = sc.getChunk().getId();
             if (combinedResults.containsKey(id)) {
                 ScoredChunk existing = combinedResults.get(id);
-                existing.keywordScore = Math.max(existing.keywordScore, sc.keywordScore);
+                existing.setKeywordScore(Math.max(existing.getKeywordScore(), sc.getKeywordScore()));
             } else {
                 combinedResults.put(id, sc);
             }
@@ -170,11 +171,11 @@ public class HybridRetrievalService {
 
         // Calculate hybrid scores and sort
         return combinedResults.values().stream()
-                .peek(sc -> sc.hybridScore =
-                        (sc.vectorScore * VECTOR_WEIGHT) + (sc.keywordScore * KEYWORD_WEIGHT))
-                .sorted(Comparator.comparingDouble(sc -> -sc.hybridScore))
+                .peek(sc -> sc.setHybridScore(
+                        (sc.getVectorScore() * VECTOR_WEIGHT) + (sc.getKeywordScore() * KEYWORD_WEIGHT)))
+                .sorted(Comparator.comparingDouble(sc -> -sc.getHybridScore()))
                 .limit(topK)
-                .map(sc -> sc.chunk)
+                .map(ScoredChunk::getChunk)
                 .collect(Collectors.toList());
     }
 
@@ -248,22 +249,6 @@ public class HybridRetrievalService {
         }
 
         return (double) matches / keywords.length;
-    }
-
-    /**
-     * Helper class to store chunk with multiple scores
-     */
-    private static class ScoredChunk {
-        DocumentChunk chunk;
-        double vectorScore;
-        double keywordScore;
-        double hybridScore;
-
-        ScoredChunk(DocumentChunk chunk, double vectorScore, double keywordScore) {
-            this.chunk = chunk;
-            this.vectorScore = vectorScore;
-            this.keywordScore = keywordScore;
-        }
     }
 }
 

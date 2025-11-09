@@ -1,7 +1,6 @@
-package com.askbit.ai.service;
+package com.askbit.ai.analyzer;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.askbit.ai.dto.TemporalContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -84,35 +83,6 @@ public class TemporalQueryAnalyzer {
 
         // Default: use latest version
         return TemporalContext.latest();
-    }
-
-    /**
-     * Data class to hold temporal context analysis results
-     */
-    @Data
-    @AllArgsConstructor
-    public static class TemporalContext {
-        private boolean useLatestVersion;
-        private Integer targetYear;
-        private boolean needsClarification;
-        private String clarificationReason;
-
-        public static TemporalContext latest() {
-            return new TemporalContext(true, null, false, null);
-        }
-
-        public static TemporalContext forYear(int year) {
-            return new TemporalContext(false, year, false, null);
-        }
-
-        public static TemporalContext needsClarification() {
-            return new TemporalContext(false, null, true,
-                    "Your question refers to a previous policy. Which year or version are you asking about?");
-        }
-
-        public boolean isHistoricalQuery() {
-            return !useLatestVersion && targetYear != null;
-        }
     }
 }
 

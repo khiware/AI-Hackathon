@@ -1,8 +1,11 @@
 package com.askbit.ai.service;
 
+import com.askbit.ai.analyzer.TemporalQueryAnalyzer;
 import com.askbit.ai.dto.AskRequest;
 import com.askbit.ai.dto.AskResponse;
 import com.askbit.ai.dto.Citation;
+import com.askbit.ai.dto.ModelResponse;
+import com.askbit.ai.dto.TemporalContext;
 import com.askbit.ai.model.Document;
 import com.askbit.ai.model.DocumentChunk;
 import com.askbit.ai.model.QueryHistory;
@@ -107,7 +110,7 @@ public class QuestionAnsweringService {
         }
 
         // TEMPORAL ANALYSIS: Analyze question for version/year context
-        TemporalQueryAnalyzer.TemporalContext temporalContext =
+        TemporalContext temporalContext =
                 temporalQueryAnalyzer.analyzeQuestion(question);
 
         // If temporal analysis needs clarification (e.g., "old policy" without year)
@@ -214,7 +217,7 @@ public class QuestionAnsweringService {
         String prompt = buildPrompt(question, context);
 
         // Get response from model with failover support (pass cached answer if available)
-        ModelRouterService.ModelResponse modelResponse =
+        ModelResponse modelResponse =
                 modelRouterService.generateResponseWithFailover(prompt, cachedAnswerText);
 
         // Note: failover mechanism will return success=true with fallback message if needed
