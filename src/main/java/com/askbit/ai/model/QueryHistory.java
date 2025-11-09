@@ -26,10 +26,9 @@ public class QueryHistory {
     @Column(length = 2000)
     private String normalizedQuestion;
 
-    @Column(nullable = false, length = 10000)
+    @Column(length = 10000)
     private String answer;
 
-    @Column(nullable = false)
     private Double confidence;
 
     @Column(nullable = false)
@@ -48,6 +47,9 @@ public class QueryHistory {
     private Boolean piiRedacted;
 
     private Boolean clarificationAsked;
+
+    @Column(length = 10000)
+    private String clarificationQuestion;
 
     @PrePersist
     protected void onCreate() {

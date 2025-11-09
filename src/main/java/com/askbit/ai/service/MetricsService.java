@@ -64,7 +64,7 @@ public class MetricsService {
         try {
             // Get cacheHits from Redis
             long hits = cacheService.getFromCache("queriesCacheHits") != null
-                    ? Long.parseLong((String) cacheService.getFromCache("queriesCacheHits"))
+                    ? (int) cacheService.getFromCache("queriesCacheHits")
                     : 0L;
 
             Set<String> keys = cacheService.getKeysByPattern("queries::*");

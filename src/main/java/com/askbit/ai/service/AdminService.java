@@ -65,8 +65,8 @@ public class AdminService {
         try {
             // Get cacheHits from Redis
             hits = cacheService.getFromCache("queriesCacheHits") != null
-                    ? Long.parseLong((String) cacheService.getFromCache("queriesCacheHits"))
-                    : 0;
+                    ? (int) cacheService.getFromCache("queriesCacheHits")
+                    : 0L;
 
             // Get actual Redis cache size by counting keys matching the pattern
             Set<String> keys = cacheService.getKeysByPattern("queries::*");

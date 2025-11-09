@@ -6,7 +6,6 @@ import com.askbit.ai.repository.DocumentChunkRepository;
 import com.askbit.ai.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -33,7 +32,6 @@ public class HybridRetrievalService {
      * Hybrid search: Combines vector similarity and keyword matching
      * Results are cached for faster subsequent queries
      */
-    @Cacheable(value = "vectorSearchCache", key = "#question + '_' + #topK")
     public List<DocumentChunk> hybridSearch(String question, int topK) {
         return hybridSearchWithVersionFilter(question, topK, null);
     }

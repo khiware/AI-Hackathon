@@ -16,6 +16,10 @@ public class CacheService {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
+    public void incrementCacheHit(String key) {
+        redisTemplate.opsForValue().increment(key);
+    }
+
     public void saveToCache(String key, Object value) {
         redisTemplate.opsForValue().set(key, value, 1, TimeUnit.DAYS);
     }

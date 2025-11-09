@@ -35,7 +35,6 @@ public class QuestionAnsweringService {
     private final TemporalQueryAnalyzer temporalQueryAnalyzer;
     private final QueryPreprocessingService queryPreprocessingService;
     private final ObjectMapper objectMapper;
-    private long cacheHits = 0L;
 
     @Value("${askbit.ai.confidence-threshold:0.7}")
     private double confidenceThreshold;
@@ -91,11 +90,11 @@ public class QuestionAnsweringService {
         String cachedAnswerText = (cachedResponse != null) ? cachedResponse.getAnswer() : null;
 
         if (cachedResponse != null) {
-            cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
+            cacheService.incrementCacheHit("queriesCacheHits");
             AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
                     System.currentTimeMillis() - startTime);
             saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
-                    newCachedResponse.getModelUsed(), wasClarified);
+                    newCachedResponse.getModelUsed(), false, null);
             return newCachedResponse;
         }
 
@@ -106,11 +105,17 @@ public class QuestionAnsweringService {
         // If temporal analysis needs clarification (e.g., "old policy" without year)
         if (temporalContext.isNeedsClarification()) {
             log.info("Temporal analysis requires clarification: {}", question);
-            return AskResponse.builder()
+            AskResponse needClarificationResponse = AskResponse.builder()
                     .clarificationQuestion(temporalContext.getClarificationReason())
                     .needsClarification(true)
+                    .cached(false)
+                    .piiRedacted(piiRedacted)
                     .responseTimeMs(System.currentTimeMillis() - startTime)
                     .build();
+
+            saveQueryHistory(question, originalQuestion, needClarificationResponse,
+                    null, wasClarified, temporalContext.getClarificationReason());
+            return needClarificationResponse;
         }
         // Handle clarification flow:
         // If user provided context (responding to a clarification question), expand the question
@@ -126,11 +131,17 @@ public class QuestionAnsweringService {
 
                 log.info("Expanded question still needs clarification: {}", question);
 
-                return AskResponse.builder()
+                AskResponse wasClarifiedResponse = AskResponse.builder()
                         .clarificationQuestion(clarificationQuestion)
                         .needsClarification(true)
+                        .cached(false)
+                        .piiRedacted(piiRedacted)
                         .responseTimeMs(System.currentTimeMillis() - startTime)
                         .build();
+                saveQueryHistory(question, originalQuestion,
+                        wasClarifiedResponse, null, true,
+                        clarificationQuestion);
+                return wasClarifiedResponse;
             }
 
             // Re-analyze temporal context after clarification
@@ -144,11 +155,17 @@ public class QuestionAnsweringService {
             log.info("Question needs clarification: {}", question);
 
             // Don't save to history yet - wait for user's clarified response
-            return AskResponse.builder()
+            AskResponse clarificationResponse = AskResponse.builder()
                     .clarificationQuestion(clarificationQuestion)
                     .needsClarification(true)
+                    .cached(false)
+                    .piiRedacted(piiRedacted)
                     .responseTimeMs(System.currentTimeMillis() - startTime)
                     .build();
+            saveQueryHistory(question, originalQuestion,
+                    clarificationResponse, null, true,
+                    clarificationQuestion);
+            return clarificationResponse;
         }
 
         // Determine target year for version filtering
@@ -176,7 +193,7 @@ public class QuestionAnsweringService {
 
         // If no relevant documents found, return appropriate message
         if (citations.isEmpty()) {
-            return buildNoDocumentsFoundResponse(
+            return buildNoDocumentsFoundResponse(piiRedacted,
                     System.currentTimeMillis() - startTime);
         }
 
@@ -220,7 +237,7 @@ public class QuestionAnsweringService {
 
         // Save to query history for analytics
         saveQueryHistory(normalizedQuestion, originalQuestion, response,
-                modelResponse.getModelUsed(), wasClarified);
+                modelResponse.getModelUsed(), false, null);
 
         // Store in Redis cache with 1-day TTL
         cacheService.saveToCache(cacheKey, response);
@@ -432,11 +449,10 @@ public class QuestionAnsweringService {
                 .responseTimeMs(totalTime)  // Use actual retrieval time
                 .modelUsed("cached")  // Indicate it was served from cache
                 .piiRedacted(response.getPiiRedacted())
-                .preprocessedQuestion(response.getPreprocessedQuestion())
                 .build();
     }
 
-    private AskResponse buildNoDocumentsFoundResponse(long responseTime) {
+    private AskResponse buildNoDocumentsFoundResponse(boolean piiRedacted, long responseTime) {
         return AskResponse.builder()
                 .answer("I couldn't find a clear policy on this. Please check with HR or submit a ticket.")
                 .citations(List.of())
@@ -444,6 +460,7 @@ public class QuestionAnsweringService {
                 .cached(false)
                 .needsClarification(false)
                 .responseTimeMs(responseTime)
+                .piiRedacted(piiRedacted)
                 .build();
     }
 
@@ -482,7 +499,8 @@ public class QuestionAnsweringService {
     }
 
     private void saveQueryHistory(String normalizedQuestion, String originalQuestion,
-                                   AskResponse response, String modelUsed, boolean clarificationAsked) {
+                                  AskResponse response, String modelUsed, boolean clarificationAsked,
+                                  String clarificationQuestion) {
         try {
             String citationsJson = objectMapper.writeValueAsString(response.getCitations());
 
@@ -491,12 +509,13 @@ public class QuestionAnsweringService {
                     .normalizedQuestion(normalizedQuestion)
                     .answer(response.getAnswer())
                     .confidence(response.getConfidence())
-                    .fromCache(false)
+                    .fromCache(response.getCached())
                     .responseTimeMs(response.getResponseTimeMs())
                     .modelUsed(modelUsed)
                     .citationsJson(citationsJson)
                     .piiRedacted(response.getPiiRedacted())
                     .clarificationAsked(clarificationAsked)
+                    .clarificationQuestion(clarificationQuestion)
                     .build();
 
             queryHistoryRepository.save(queryHistory);
