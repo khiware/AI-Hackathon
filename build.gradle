@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.2.0'
     id 'io.spring.dependency-management' version '1.1.4'
+    id 'jacoco'
 }
 
 group = 'com.askbit'
@@ -63,6 +64,10 @@ dependencies {
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.mockito:mockito-core'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+    testImplementation 'org.assertj:assertj-core:3.24.2'
+    testRuntimeOnly 'com.h2database:h2'
 }
 
 dependencyManagement {
@@ -73,6 +78,45 @@ dependencyManagement {
 
 tasks.named('test') {
     useJUnitPlatform()
-    enabled = false  // Disable test execution
+    enabled = true  // Enable test execution
+    finalizedBy jacocoTestReport  // Generate report after tests
 }
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    '**/AskBitAiApplication.class',
+                    '**/dto/**',
+                    '**/model/**'
+            ])
+        }))
+    }
+
+    doLast {
+        println "Coverage report: file://${buildDir}/reports/jacoco/test/html/index.html"
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.80  // 80% coverage goal
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
 

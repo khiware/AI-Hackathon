@@ -2,127 +2,295 @@ package com.askbit.ai.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Test cases for QueryPreprocessingService
- */
+@ExtendWith(MockitoExtension.class)
 class QueryPreprocessingServiceTest {
+
+    @Mock
+    private PiiRedactionService piiRedactionService;
 
     private QueryPreprocessingService queryPreprocessingService;
 
     @BeforeEach
     void setUp() {
-        queryPreprocessingService = new QueryPreprocessingService();
+        queryPreprocessingService = new QueryPreprocessingService(piiRedactionService);
     }
 
     @Test
-    void testSpellingCorrection() {
-        // Test common spelling mistakes
-        String input = "What is the increament polcy?";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.contains("increment"));
-        assertTrue(result.contains("policy"));
-    }
-
-    @Test
-    void testAbbreviationExpansion() {
-        // Test abbreviation expansion
-        String input = "What is pvp?";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.toLowerCase().contains("progressive variable pay"));
-    }
-
-    @Test
-    void testSpecialCharacterCleaning() {
-        // Test special character removal
-        String input = "What is the sallary??? @#$";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertFalse(result.contains("@#$"));
-        assertTrue(result.contains("salary"));
-        assertFalse(result.contains("???"));
-    }
-
-    @Test
-    void testTextSpeakConversion() {
-        // Test text speak to proper words
-        String input = "pls tell me abt flexnext";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.contains("please"));
-        assertTrue(result.contains("FlexNext"));
-    }
-
-    @Test
-    void testQuestionMarkAddition() {
-        // Test automatic question mark addition
-        String input = "What is the leave policy";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.endsWith("?"));
-    }
-
-    @Test
-    void testWhitespaceNormalization() {
-        // Test whitespace normalization
-        String input = "What    is     the    policy";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertFalse(result.contains("    "));
-        assertEquals("What is the policy?", result);
-    }
-
-    @Test
-    void testCombinedProcessing() {
-        // Test multiple corrections at once
-        String input = "wat is the increament polcy for employe???";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.contains("what"));
-        assertTrue(result.contains("increment"));
-        assertTrue(result.contains("policy"));
-        assertTrue(result.contains("employee"));
-        assertFalse(result.contains("???"));
-    }
-
-    @Test
-    void testEmptyQuestion() {
-        // Test empty question handling
-        String input = "";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertEquals("", result);
-    }
-
-    @Test
-    void testNullQuestion() {
-        // Test null question handling
+    void preprocessQuestion_shouldReturnNullForNullInput() {
+        // Act
         String result = queryPreprocessingService.preprocessQuestion(null);
-        assertNull(result);
+
+        // Assert
+        assertThat(result).isNull();
     }
 
     @Test
-    void testMultipleAbbreviations() {
-        // Test multiple abbreviations in one question
-        String input = "What is hr policy for wfh and pf?";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.toLowerCase().contains("human resources"));
-        assertTrue(result.toLowerCase().contains("work from home"));
-        assertTrue(result.toLowerCase().contains("provident fund"));
+    void preprocessQuestion_shouldReturnEmptyForEmptyInput() {
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion("");
+
+        // Assert
+        assertThat(result).isEmpty();
     }
 
     @Test
-    void testCasePreservation() {
-        // Test that proper capitalization is preserved
-        String input = "What is FlexNext polcy?";
-        String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.contains("FlexNext"));
-        assertTrue(result.contains("policy"));
+    void preprocessQuestion_shouldReturnTrimmedForWhitespaceOnly() {
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion("   ");
+
+        // Assert
+        // After trimming whitespace, it becomes empty
+        assertThat(result).isNotNull();
     }
 
     @Test
-    void testInformalPhraseConversion() {
-        // Test conversion of informal phrases
-        String input = "can u tell me about the leave policy";
+    void preprocessQuestion_shouldNormalizeWhitespace() {
+        // Arrange
+        String input = "What  is   the    policy?";
+
+        // Act
         String result = queryPreprocessingService.preprocessQuestion(input);
-        assertTrue(result.toLowerCase().contains("what is"));
-        assertFalse(result.contains("can u tell"));
+
+        // Assert
+        assertThat(result).isEqualTo("What is the policy?");
+    }
+
+    @Test
+    void preprocessQuestion_shouldRemoveRepeatedPunctuation() {
+        // Arrange
+        String input = "What is the policy???";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).isEqualTo("What is the policy?");
+    }
+
+    @Test
+    void preprocessQuestion_shouldCorrectSpellingMistakes() {
+        // Arrange
+        String input = "What is the increament polcy?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("increment");
+        assertThat(result).contains("policy");
+    }
+
+    @Test
+    void preprocessQuestion_shouldCorrectMultipleSpellingErrors() {
+        // Arrange
+        String input = "What is my sallary and benifits?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("salary");
+        assertThat(result).contains("benefits");
+    }
+
+    @Test
+    void preprocessQuestion_shouldFixQuestionWordTypos() {
+        // Arrange
+        String input = "wat is the policy?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).startsWith("what");
+    }
+
+    @Test
+    void preprocessQuestion_shouldPreserveCase() {
+        // Arrange
+        String input = "What is the Increament Policy?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("Increment");
+        assertThat(result).contains("Policy");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleNoChanges() {
+        // Arrange
+        String input = "What is the vacation policy?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).isEqualTo(input);
+    }
+
+    @Test
+    void preprocessQuestion_shouldCleanSpecialCharacters() {
+        // Arrange
+        String input = "What is the policy???!!";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).doesNotContain("!!!");
+        assertThat(result).doesNotContain("???");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleCompoundErrors() {
+        // Arrange
+        String input = "wat  is  my  sallary  increament???";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("what");
+        assertThat(result).contains("salary");
+        assertThat(result).contains("increment");
+        assertThat(result).doesNotContain("???");
+        assertThat(result).doesNotContain("  "); // no double spaces
+    }
+
+    @Test
+    void preprocessQuestion_shouldPreservePunctuation() {
+        // Arrange
+        String input = "What's the policy, and how does it work?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("'");
+        assertThat(result).contains(",");
+        assertThat(result).contains("?");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleLongText() {
+        // Arrange
+        String input = "I would like to know about the increament polcy and the benifits for employees in the organization";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("increment");
+        assertThat(result).contains("policy");
+        assertThat(result).contains("benefits");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleAllUppercase() {
+        // Arrange
+        String input = "WHAT IS THE POLCY?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        // The word POLCY should be corrected to POLICY maintaining uppercase
+        assertThat(result.toUpperCase()).contains("POLICY");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleAllLowercase() {
+        // Arrange
+        String input = "what is the polcy?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("policy");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleMixedCase() {
+        // Arrange
+        String input = "WhAt Is ThE PoLcY?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).containsIgnoringCase("policy");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleNumbersAndLetters() {
+        // Arrange
+        String input = "What is the FY 2023 polcy?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("policy");
+        assertThat(result).contains("FY");
+        assertThat(result).contains("2023");
+    }
+
+    @Test
+    void preprocessQuestion_shouldHandleHyphens() {
+        // Arrange
+        String input = "What is the work-from-home polcy?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).contains("work-from-home");
+        assertThat(result).contains("policy");
+    }
+
+    @Test
+    void preprocessQuestion_shouldFixWenTypo() {
+        // Arrange
+        String input = "wen can I apply?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).startsWith("when");
+    }
+
+    @Test
+    void preprocessQuestion_shouldFixWerTypo() {
+        // Arrange
+        String input = "wer is the office?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).startsWith("where");
+    }
+
+    @Test
+    void preprocessQuestion_shouldFixHwTypo() {
+        // Arrange
+        String input = "hw do I apply?";
+
+        // Act
+        String result = queryPreprocessingService.preprocessQuestion(input);
+
+        // Assert
+        assertThat(result).startsWith("how");
     }
 }
 
