@@ -118,8 +118,10 @@ public class QuestionAnsweringService {
 
         if (cachedResponse != null) {
             cacheService.saveToCache("queriesCacheHits", String.valueOf(cacheHits++));
-            return buildCachedResponse(cachedResponse,
+            AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
                     System.currentTimeMillis() - startTime);
+            saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
+                    newCachedResponse.getModelUsed(), wasClarified);
         }
 
         // Retrieve relevant document chunks using Hybrid Search
