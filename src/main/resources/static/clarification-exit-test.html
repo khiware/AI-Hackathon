@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clarification with Exit Button - Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            color: #333;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        .test-section {
+            background: #f7f9fc;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .message-bubble {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .clarification-text {
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .options-container {
+            margin-top: 12px;
+        }
+
+        .option-button {
+            display: block;
+            width: 100%;
+            margin: 6px 0;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+            transition: background 0.2s;
+        }
+
+        .option-button:hover {
+            background: #5568d3;
+        }
+
+        .cancel-button {
+            display: block;
+            width: 100%;
+            margin: 12px 0 0 0;
+            padding: 10px;
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .cancel-button:hover {
+            background: #f57c00;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .cancel-message {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .feature-list {
+            background: #e8eeff;
+            padding: 15px 15px 15px 35px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .feature-list li {
+            margin: 8px 0;
+            color: #333;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚪 Exit Button for Clarification Questions</h1>
+        <p style="color: #666; margin-bottom: 20px;">
+            This feature allows users to cancel/exit from clarification questions and ask a different question instead.
+        </p>
+
+        <div class="feature-list">
+            <strong>✨ New Features:</strong>
+            <ul>
+                <li>❌ Cancel button on all clarification questions</li>
+                <li>🔄 Reset clarification state</li>
+                <li>✋ User-friendly cancel confirmation message</li>
+                <li>🎯 Automatically focus on input after cancel</li>
+            </ul>
+        </div>
+
+        <h2>📝 Example Scenario</h2>
+        <div class="test-section">
+            <strong>User asks:</strong> <code>"What about expenses?"</code>
+            <br><br>
+            <strong>Bot responds with clarification:</strong>
+
+            <div class="message-bubble">
+                <div class="clarification-text">
+                    I found information about 'expense', but I need more context. Are you asking about:<br>
+                    1. travel expenses<br>
+                    2. equipment expenses<br>
+                    3. meal expenses<br>
+                    4. training expenses<br>
+                    5. relocation expenses<br><br>
+                    Please specify which one you're interested in.
+                </div>
+
+                <div class="options-container">
+                    <button class="option-button" onclick="handleOption('travel expenses')">
+                        travel expenses
+                    </button>
+                    <button class="option-button" onclick="handleOption('equipment expenses')">
+                        equipment expenses
+                    </button>
+                    <button class="option-button" onclick="handleOption('meal expenses')">
+                        meal expenses
+                    </button>
+                    <button class="option-button" onclick="handleOption('training expenses')">
+                        training expenses
+                    </button>
+                    <button class="option-button" onclick="handleOption('relocation expenses')">
+                        relocation expenses
+                    </button>
+                    <button class="cancel-button" onclick="handleCancel()">
+                        ❌ Cancel - Ask Different Question
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="successMessage" class="success-message">
+            ✅ <strong>Option selected!</strong> The bot will now provide information about your chosen expense type.
+        </div>
+
+        <div id="cancelMessage" class="cancel-message">
+            ✋ <strong>Clarification cancelled.</strong> Feel free to ask a different question!
+        </div>
+
+        <h2>🎯 How It Works</h2>
+        <div class="test-section">
+            <strong>When user clicks an option:</strong>
+            <ol style="margin-left: 20px; margin-top: 10px;">
+                <li>User's choice is sent to the bot with context</li>
+                <li>Bot provides specific answer for that option</li>
+                <li>Clarification state is reset</li>
+            </ol>
+            <br>
+            <strong>When user clicks "Cancel":</strong>
+            <ol style="margin-left: 20px; margin-top: 10px;">
+                <li>Clarification state is reset immediately</li>
+                <li>Confirmation message is displayed</li>
+                <li>Input field is focused for new question</li>
+                <li>User can ask completely different question</li>
+            </ol>
+        </div>
+
+        <h2>💡 Technical Implementation</h2>
+        <div class="test-section">
+            <strong>Cancel Button Styling:</strong><br>
+            <code>background: #dc3545</code> (Bootstrap danger red)<br>
+            <code>hover: #c82333</code> (Darker red on hover)<br><br>
+
+            <strong>Cancel Function:</strong><br>
+            • Resets <code>clarificationState</code><br>
+            • Shows cancel confirmation message<br>
+            • Focuses input for new question<br>
+            • Scrolls to bottom of chat
+        </div>
+
+        <h2>🧪 Try It Out</h2>
+        <div class="test-section">
+            <p>Click the buttons above to test the behavior:</p>
+            <ul style="margin-left: 20px;">
+                <li><strong>Option buttons (blue)</strong> - Simulates selecting a clarification option</li>
+                <li><strong>Cancel button (red)</strong> - Simulates canceling the clarification</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function handleOption(option) {
+            document.getElementById('successMessage').style.display = 'block';
+            document.getElementById('cancelMessage').style.display = 'none';
+
+            setTimeout(() => {
+                document.getElementById('successMessage').style.display = 'none';
+            }, 3000);
+        }
+
+        function handleCancel() {
+            document.getElementById('cancelMessage').style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+
+            setTimeout(() => {
+                document.getElementById('cancelMessage').style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+

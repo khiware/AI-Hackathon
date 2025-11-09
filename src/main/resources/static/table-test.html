@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Formatting Test - AskBit.AI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f7f9fc;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .test-container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            color: #333;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .answer-content {
+            line-height: 1.8;
+        }
+
+        .answer-content strong,
+        .answer-content b {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .answer-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .answer-content table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border: none;
+        }
+
+        .answer-content table td {
+            padding: 12px;
+            border: 1px solid #e8e8e8;
+            background: white;
+        }
+
+        .answer-content table tr:nth-child(even) td {
+            background: #f9f9f9;
+        }
+
+        .answer-content table tr:hover td {
+            background: #f0f4ff;
+        }
+
+        .original {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .formatted {
+            background: #d4edda;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+
+        .code {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 Table Formatting Test</h1>
+        <p>This page demonstrates how the improved table formatting will render in AskBit.AI</p>
+
+        <h2>Test 1: Variable Pay Schedule Table</h2>
+
+        <div class="original">
+            <strong>❌ Original (Broken) Format:</strong>
+            <pre style="margin-top: 10px; font-size: 13px; overflow-x: auto;">Variable Pay is typically paid according to the following schedule:
+
+| Quarters            | Payment Month |
+|---------------------|---------------|
+| April to June (Q1)  | August        |
+| July to September (Q2) | November    |
+| October to December (Q3) | February  |
+| January to March (Q4)   | May         |</pre>
+        </div>
+
+        <div class="formatted">
+            <strong>✅ New Formatted Version:</strong>
+            <div class="answer-content" id="formatted-result"></div>
+        </div>
+
+        <h2>Test 2: Complex Table with Multiple Columns</h2>
+
+        <div class="formatted">
+            <strong>✅ Example: Leave Policy Table</strong>
+            <div class="answer-content" id="leave-policy-table"></div>
+        </div>
+
+        <h2>Test 3: Table with Bold Text</h2>
+
+        <div class="formatted">
+            <strong>✅ Example: FlexNext Benefits</strong>
+            <div class="answer-content" id="benefits-table"></div>
+        </div>
+    </div>
+
+    <script>
+        // Copy the formatMarkdownWithTables function from index.html
+        function formatMarkdownWithTables(text) {
+            let html = '';
+            const lines = text.split('\n');
+            let inTable = false;
+            let tableRows = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+
+                // Detect table rows (lines containing |)
+                if (line.includes('|') && line.split('|').filter(cell => cell.trim()).length > 1) {
+                    if (!inTable) {
+                        inTable = true;
+                        tableRows = [];
+                    }
+                    tableRows.push(line);
+                } else {
+                    // End of table or non-table content
+                    if (inTable) {
+                        html += renderMarkdownTable(tableRows);
+                        inTable = false;
+                        tableRows = [];
+                    }
+
+                    // Format non-table content
+                    if (line) {
+                        // Convert **bold** to <strong>
+                        let formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+                        // Convert numbered lists
+                        if (/^\d+\./.test(formattedLine)) {
+                            formattedLine = formattedLine.replace(/^(\d+\.\s*)/, '<strong>$1</strong>');
+                        }
+
+                        // Convert bullet points
+                        if (/^[-*]\s/.test(formattedLine)) {
+                            formattedLine = '• ' + formattedLine.substring(2);
+                        }
+
+                        html += formattedLine + '<br>';
+                    } else {
+                        html += '<br>';
+                    }
+                }
+            }
+
+            // Handle case where table is at the end
+            if (inTable && tableRows.length > 0) {
+                html += renderMarkdownTable(tableRows);
+            }
+
+            return html;
+        }
+
+        function renderMarkdownTable(rows) {
+            if (rows.length < 2) return rows.join('<br>');
+
+            let html = '<table style="width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px;">';
+            let headerProcessed = false;
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i].trim();
+
+                // Skip separator rows (rows with dashes like |---|---|)
+                // Check if row contains only |, -, :, and whitespace
+                const rowContent = row.replace(/\s/g, '');
+                if (/^[\|:\-]+$/.test(rowContent)) {
+                    continue;
+                }
+
+                // Parse cells
+                const cells = row.split('|')
+                    .map(cell => cell.trim())
+                    .filter(cell => cell);
+
+                if (cells.length === 0) continue;
+
+                // First non-separator row is header
+                const isHeader = !headerProcessed;
+                if (isHeader) headerProcessed = true;
+
+                const tag = isHeader ? 'th' : 'td';
+                const style = isHeader
+                    ? 'background: #667eea; color: white; padding: 10px; text-align: left; font-weight: 600; border: 1px solid #5568d3;'
+                    : 'padding: 10px; border: 1px solid #e0e0e0; background: white;';
+
+                html += '<tr>';
+                cells.forEach(cell => {
+                    // Convert **bold** in cells
+                    let formattedCell = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    html += `<${tag} style="${style}">${formattedCell}</${tag}>`;
+                });
+                html += '</tr>';
+            }
+
+            html += '</table>';
+            return html;
+        }
+
+        // Test 1: Variable Pay Schedule
+        const variablePayText = `Variable Pay is typically paid according to the following schedule:
+
+| Quarters            | Payment Month |
+|---------------------|---------------|
+| April to June (Q1)  | August        |
+| July to September (Q2) | November    |
+| October to December (Q3) | February  |
+| January to March (Q4)   | May         |`;
+
+        document.getElementById('formatted-result').innerHTML = formatMarkdownWithTables(variablePayText);
+
+        // Test 2: Leave Policy
+        const leavePolicyText = `Leave Policy Overview:
+
+| Leave Type | Days Allowed | Carry Forward | Notice Required |
+|------------|--------------|---------------|-----------------|
+| **Casual Leave** | 12 days | No | 1 day |
+| **Sick Leave** | 10 days | Yes | As needed |
+| **Privilege Leave** | 15 days | Yes | 7 days |
+| **Maternity Leave** | 180 days | No | 30 days |`;
+
+        document.getElementById('leave-policy-table').innerHTML = formatMarkdownWithTables(leavePolicyText);
+
+        // Test 3: FlexNext Benefits
+        const benefitsText = `FlexNext allows you to choose from various benefits:
+
+| Benefit Category | Monthly Amount | Tax Benefit |
+|------------------|----------------|-------------|
+| **Food Coupons** | Up to ₹2,200 | ✅ Exempt |
+| **Fuel Allowance** | Up to ₹2,400 | ✅ Exempt |
+| **LTA** | Varies | ✅ Exempt |
+| **Internet Reimbursement** | Up to ₹1,000 | ✅ Exempt |
+
+**Note:** These benefits are subject to policy terms and conditions.`;
+
+        document.getElementById('benefits-table').innerHTML = formatMarkdownWithTables(benefitsText);
+    </script>
+</body>
+</html>
+

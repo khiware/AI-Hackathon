@@ -25,5 +25,6 @@ public class AskResponse implements Serializable {
     private Long responseTimeMs;
     private String modelUsed;
     private Boolean piiRedacted;
+    private String preprocessedQuestion;  // Shows what was understood after preprocessing
 }
 

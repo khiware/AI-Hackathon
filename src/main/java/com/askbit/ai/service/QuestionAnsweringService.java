@@ -33,6 +33,7 @@ public class QuestionAnsweringService {
     private final ClarificationService clarificationService;
     private final CacheService cacheService;
     private final TemporalQueryAnalyzer temporalQueryAnalyzer;
+    private final QueryPreprocessingService queryPreprocessingService;
     private final ObjectMapper objectMapper;
     private long cacheHits = 0L;
 
@@ -59,10 +60,18 @@ public class QuestionAnsweringService {
             return buildErrorResponse("Question cannot be empty");
         }
 
-        // Redact PII from question
+        // STEP 1: Preprocess question - handle spelling mistakes, special characters, etc.
         String originalQuestion = question;
+        question = queryPreprocessingService.preprocessQuestion(question);
+
+        if (!originalQuestion.equals(question)) {
+            log.info("Question preprocessed from: '{}' to: '{}'", originalQuestion, question);
+        }
+
+        // STEP 2: Redact PII from question
+        String questionBeforePiiRedaction = question;
         question = piiRedactionService.redactPii(question);
-        boolean piiRedacted = !originalQuestion.equals(question);
+        boolean piiRedacted = !questionBeforePiiRedaction.equals(question);
 
         if (piiRedacted) {
             log.info("PII detected and redacted in question");
@@ -206,6 +215,7 @@ public class QuestionAnsweringService {
                 .responseTimeMs(System.currentTimeMillis() - startTime)
                 .modelUsed(modelResponse.getModelUsed())
                 .piiRedacted(piiRedacted)
+                .preprocessedQuestion(originalQuestion.equals(question) ? null : question)
                 .build();
 
         // Save to query history for analytics
@@ -422,6 +432,7 @@ public class QuestionAnsweringService {
                 .responseTimeMs(totalTime)  // Use actual retrieval time
                 .modelUsed("cached")  // Indicate it was served from cache
                 .piiRedacted(response.getPiiRedacted())
+                .preprocessedQuestion(response.getPreprocessedQuestion())
                 .build();
     }
 
