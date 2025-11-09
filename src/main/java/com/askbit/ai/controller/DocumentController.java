@@ -29,7 +29,7 @@ public class DocumentController {
             @RequestParam(value = "version", required = false, defaultValue = "1.0") String version,
             @RequestParam(value = "description", required = false) String description) {
 
-        log.info("Uploading document: {}", file.getOriginalFilename());
+        log.info("Processing document upload request");
 
         try {
             DocumentUploadResponse response = documentProcessingService
@@ -85,7 +85,7 @@ public class DocumentController {
     @PostMapping("/{documentId}/cleanup/duplicates")
     public ResponseEntity<CleanupResponse> cleanupDuplicateChunks(@PathVariable String documentId) {
         try {
-            log.info("Cleaning up duplicate chunks for document: {}", documentId);
+            log.info("Cleaning up duplicate chunks for document");
             int removedCount = documentProcessingService.cleanupDuplicateChunks(documentId);
 
             return ResponseEntity.ok(CleanupResponse.builder()
@@ -105,7 +105,7 @@ public class DocumentController {
     @PostMapping("/{documentId}/cleanup/invalid")
     public ResponseEntity<CleanupResponse> cleanupInvalidChunks(@PathVariable String documentId) {
         try {
-            log.info("Cleaning up invalid chunks for document: {}", documentId);
+            log.info("Cleaning up invalid chunks for document");
             int removedCount = documentProcessingService.cleanupInvalidChunks(documentId);
 
             return ResponseEntity.ok(CleanupResponse.builder()
@@ -125,7 +125,7 @@ public class DocumentController {
     @PostMapping("/{documentId}/cleanup/full")
     public ResponseEntity<CleanupResponse> cleanupAndReindex(@PathVariable String documentId) {
         try {
-            log.info("Full cleanup and re-index for document: {}", documentId);
+            log.info("Performing full cleanup and re-index for document");
             documentProcessingService.cleanupAndReindexDocument(documentId);
 
             Document document = documentProcessingService.getDocument(documentId);

@@ -16,6 +16,5 @@ public class AskRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String question;
-    private String conversationId;
     private String context;
 }

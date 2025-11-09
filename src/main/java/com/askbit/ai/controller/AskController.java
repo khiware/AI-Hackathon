@@ -21,7 +21,7 @@ public class AskController {
 
     @PostMapping("/ask")
     public ResponseEntity<AskResponse> ask(@Valid @RequestBody AskRequest request) {
-        log.info("Received question: {}", request.getQuestion());
+        log.info("Processing question request");
 
         try {
             AskResponse response = questionAnsweringService.answerQuestion(request);

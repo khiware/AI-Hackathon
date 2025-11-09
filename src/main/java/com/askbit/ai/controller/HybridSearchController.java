@@ -40,7 +40,7 @@ public class HybridSearchController {
             @RequestParam String query,
             @RequestParam(defaultValue = "5") int topK) {
 
-        log.info("Hybrid search request: query={}, topK={}", query, topK);
+        log.info("Processing hybrid search request with topK={}", topK);
 
         long startTime = System.currentTimeMillis();
 
@@ -74,7 +74,7 @@ public class HybridSearchController {
     public ResponseEntity<Map<String, Object>> detailedHybridSearch(
             @RequestBody SearchRequest request) {
 
-        log.info("Detailed hybrid search: {}", request.getQuery());
+        log.info("Processing detailed hybrid search request");
 
         long startTime = System.currentTimeMillis();
 
@@ -132,8 +132,7 @@ public class HybridSearchController {
     public ResponseEntity<Map<String, Object>> customHybridSearch(
             @RequestBody CustomSearchRequest request) {
 
-        log.info("Custom hybrid search: query={}, topK={}",
-                request.getQuery(), request.getTopK());
+        log.info("Processing custom hybrid search with topK={}", request.getTopK());
 
         // Perform hybrid search
         List<DocumentChunk> chunks = hybridRetrievalService.hybridSearch(

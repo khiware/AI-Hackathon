@@ -120,16 +120,16 @@ public class QuestionAnsweringService {
         // Handle clarification flow:
         // If user provided context (responding to a clarification question), expand the question
         if (wasClarified) {
-            log.info("User provided clarification context: {}", request.getContext());
+            log.info("Processing clarification response");
             question = clarificationService.expandQuestionWithContext(question, request.getContext());
-            log.info("Expanded question: {}", question);
+            log.info("Question expanded with context");
 
             // ITERATIVE CLARIFICATION: Check if the expanded question still needs clarification
             if (clarificationService.needsClarification(question)) {
                 String clarificationQuestion = clarificationService
                         .generateClarificationQuestion(question);
 
-                log.info("Expanded question still needs clarification: {}", question);
+                log.info("Expanded question still needs clarification");
 
                 AskResponse wasClarifiedResponse = AskResponse.builder()
                         .clarificationQuestion(clarificationQuestion)
@@ -152,7 +152,7 @@ public class QuestionAnsweringService {
             String clarificationQuestion = clarificationService
                     .generateClarificationQuestion(question);
 
-            log.info("Question needs clarification: {}", question);
+            log.info("Question needs clarification");
 
             // Don't save to history yet - wait for user's clarified response
             AskResponse clarificationResponse = AskResponse.builder()

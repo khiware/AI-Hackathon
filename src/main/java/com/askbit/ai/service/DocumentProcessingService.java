@@ -68,8 +68,8 @@ public class DocumentProcessingService {
 
         if (existingDocument.isPresent()) {
             Document existing = existingDocument.get();
-            log.warn("Document already exists: {} version {} (documentId: {})",
-                    fileName, documentVersion, existing.getDocumentId());
+            log.warn("Document already exists with same filename and version - documentId: {}",
+                    existing.getDocumentId());
 
             return DocumentUploadResponse.builder()
                     .documentId(existing.getDocumentId())
@@ -77,7 +77,7 @@ public class DocumentProcessingService {
                     .version(documentVersion)
                     .success(false)
                     .message(String.format("Document '%s' version '%s' already exists. " +
-                            "Please use a different version or delete the existing document first.",
+                                    "Please use a different version or delete the existing document first.",
                             fileName, documentVersion))
                     .pagesProcessed(existing.getPageCount() != null ? existing.getPageCount() : 0)
                     .chunksCreated(existing.getChunkCount() != null ? existing.getChunkCount() : 0)
@@ -119,60 +119,47 @@ public class DocumentProcessingService {
         List<DocumentChunk> chunks;
         int pageCount = 0;
 
-        try {
-            if (fileType.equalsIgnoreCase("pdf")) {
-                // PDF processing saves chunks internally, returns dummy list
-                chunks = processPdfDocument(filePath.toFile(), document);
-                pageCount = getPageCountFromPdf(filePath.toFile());
-                // Don't save chunks again - already saved in processPdfDocument!
-            } else if (fileType.equalsIgnoreCase("docx") || fileType.equalsIgnoreCase("doc")) {
-                chunks = processDocxDocument(filePath.toFile(), document);
-                // Save chunks for non-PDF documents
-                documentChunkRepository.saveAll(chunks);
-            } else if (fileType.equalsIgnoreCase("md") || fileType.equalsIgnoreCase("txt")) {
-                chunks = processTextDocument(filePath.toFile(), document);
-                // Save chunks for non-PDF documents
-                documentChunkRepository.saveAll(chunks);
-            } else {
-                throw new IllegalArgumentException("Unsupported file type: " + fileType);
-            }
 
-            // Update document with page count and indexed status
-            document.setPageCount(pageCount);
-            document.setChunkCount(chunks.size());
-            document.setIndexed(true);
-            documentRepository.save(document);
-
-            // Invalidate cache since document content has changed
-            log.info("Invalidating all caches");
-            adminService.invalidateAllCaches();
-
-            long processingTime = System.currentTimeMillis() - startTime;
-            log.info("Document processed: {} in {}ms",
-                    fileName, processingTime);
-
-            return DocumentUploadResponse.builder()
-                    .documentId(documentId)
-                    .fileName(fileName)
-                    .version(document.getVersion())
-                    .success(true)
-                    .message("Document uploaded and processed successfully")
-                    .pagesProcessed(pageCount)
-                    .chunksCreated(chunks.size())
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Error processing document: {}", fileName, e);
-            document.setIndexed(false);
-            documentRepository.save(document);
-
-            return DocumentUploadResponse.builder()
-                    .documentId(documentId)
-                    .fileName(fileName)
-                    .success(false)
-                    .message("Error processing document: " + e.getMessage())
-                    .build();
+        if (fileType.equalsIgnoreCase("pdf")) {
+            // PDF processing saves chunks internally, returns dummy list
+            chunks = processPdfDocument(filePath.toFile(), document);
+            pageCount = getPageCountFromPdf(filePath.toFile());
+            // Don't save chunks again - already saved in processPdfDocument!
+        } else if (fileType.equalsIgnoreCase("docx") || fileType.equalsIgnoreCase("doc")) {
+            chunks = processDocxDocument(filePath.toFile(), document);
+            // Save chunks for non-PDF documents
+            documentChunkRepository.saveAll(chunks);
+        } else if (fileType.equalsIgnoreCase("md") || fileType.equalsIgnoreCase("txt")) {
+            chunks = processTextDocument(filePath.toFile(), document);
+            // Save chunks for non-PDF documents
+            documentChunkRepository.saveAll(chunks);
+        } else {
+            throw new IllegalArgumentException("Unsupported file type: " + fileType);
         }
+
+        // Update document with page count and indexed status
+        document.setPageCount(pageCount);
+        document.setChunkCount(chunks.size());
+        document.setIndexed(true);
+        documentRepository.save(document);
+
+        // Invalidate cache since document content has changed
+        log.info("Invalidating all caches");
+        adminService.invalidateAllCaches();
+
+        long processingTime = System.currentTimeMillis() - startTime;
+        log.info("Document processed successfully in {}ms", processingTime);
+
+        return DocumentUploadResponse.builder()
+                .documentId(documentId)
+                .fileName(fileName)
+                .version(document.getVersion())
+                .success(true)
+                .message("Document uploaded and processed successfully")
+                .pagesProcessed(pageCount)
+                .chunksCreated(chunks.size())
+                .build();
+
     }
 
     /**
