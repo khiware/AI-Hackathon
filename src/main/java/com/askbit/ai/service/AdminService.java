@@ -81,7 +81,7 @@ public class AdminService {
 
         // Calculate hit rate based on total requests
         if (cacheSize > 0) {
-            hitRate = (double) hits / cacheSize;
+            hitRate = (double) hits / (hits + cacheSize);
         }
 
         log.debug("Cache stats - Size: {}, Hits: {}, Misses: {}, Hit Rate: {}",

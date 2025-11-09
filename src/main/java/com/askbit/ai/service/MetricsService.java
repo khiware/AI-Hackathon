@@ -70,7 +70,7 @@ public class MetricsService {
             log.debug("Redis cache contains {} entries", cacheSize);
 
             if (cacheSize > 0) {
-                return (double) hits / cacheSize;
+                return (double) hits / (hits + cacheSize);
             }
         } catch (Exception e) {
             log.error("Error fetching cache hit rate from redisTemplate queries cache", e);
