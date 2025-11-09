@@ -20,7 +20,7 @@ public interface QueryHistoryRepository extends JpaRepository<QueryHistory, Long
     @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.piiRedacted = true")
     Long countPiiRedactions();
 
-    @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.clarificationAsked = true AND WHERE qh.modelUsed != 'cached'")
+    @Query("SELECT COUNT(qh) FROM QueryHistory qh WHERE qh.clarificationAsked = true AND qh.modelUsed != 'cached'")
     Long countClarifications();
 
     @Query("SELECT qh.modelUsed, COUNT(qh) as count FROM QueryHistory qh WHERE qh.modelUsed != 'cached' GROUP BY qh.modelUsed ORDER BY count DESC")
