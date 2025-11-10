@@ -352,10 +352,11 @@
         const questionInput = document.getElementById('questionInput');
         const sendBtn = document.getElementById('sendBtn');
 
-        // Track clarification state
+        // Track clarification state with full conversation history
         let clarificationState = {
             originalQuestion: null,
-            awaitingClarification: false
+            awaitingClarification: false,
+            conversationHistory: []  // Track all parts: ['leave', 'vacation', 'unpaid']
         };
 
         questionInput.addEventListener('keypress', (e) => {
@@ -382,13 +383,25 @@
                 // Prepare request body
                 const requestBody = { question };
 
-                // If we're responding to a clarification, add context
+                // If we're responding to a clarification, build conversation history
                 if (context) {
                     requestBody.context = context;
+                    // Include conversation history if this is a multi-turn clarification
+                    if (clarificationState.conversationHistory.length > 0) {
+                        requestBody.conversationHistory = clarificationState.conversationHistory.join(' ');
+                    }
                 } else if (clarificationState.awaitingClarification) {
                     // User typed a new response to clarification
                     requestBody.question = clarificationState.originalQuestion;
                     requestBody.context = question;
+
+                    // Build conversation history from all previous clarifications
+                    if (clarificationState.conversationHistory.length > 0) {
+                        requestBody.conversationHistory = clarificationState.conversationHistory.join(' ');
+                    }
+
+                    // Add current context to conversation history for next iteration
+                    clarificationState.conversationHistory.push(question);
                 }
 
                 const response = await fetch('/api/v1/ask', {
@@ -402,11 +415,14 @@
                 const data = await response.json();
                 removeLoading(loadingId);
 
-                // Reset clarification state
-                clarificationState = {
-                    originalQuestion: null,
-                    awaitingClarification: false
-                };
+                // Only reset clarification state if we got a final answer (not another clarification)
+                if (!data.needsClarification) {
+                    clarificationState = {
+                        originalQuestion: null,
+                        awaitingClarification: false,
+                        conversationHistory: []
+                    };
+                }
 
                 // Add bot response
                 addBotResponse(data, question);
@@ -444,10 +460,20 @@
             // Check if this is a clarification request
             if (data.needsClarification && data.clarificationQuestion) {
                 // Store state for clarification
+                // Preserve conversation history if this is a follow-up clarification
+                const previousHistory = clarificationState.conversationHistory || [];
+                const previousOriginal = clarificationState.originalQuestion;
+
                 clarificationState = {
-                    originalQuestion: originalQuestion,
-                    awaitingClarification: true
+                    originalQuestion: previousOriginal || originalQuestion,  // Keep first question
+                    awaitingClarification: true,
+                    conversationHistory: previousHistory  // Preserve history
                 };
+
+                // If this is the first clarification, initialize conversation history
+                if (previousHistory.length === 0) {
+                    clarificationState.conversationHistory = [originalQuestion];
+                }
 
                 // Display clarification question
                 const clarificationText = document.createElement('div');

@@ -17,4 +17,10 @@ public class AskRequest implements Serializable {
 
     private String question;
     private String context;
+
+    /**
+     * Optional: Full conversation history for multi-turn clarifications
+     * Format: "leave > vacation > unpaid" or just append all previous terms
+     */
+    private String conversationHistory;
 }

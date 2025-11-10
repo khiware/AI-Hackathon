@@ -131,16 +131,30 @@ public class QuestionAnsweringService {
         // Handle clarification flow:
         // If user provided context (responding to a clarification question), expand the question
         if (wasClarified) {
-            log.info("Processing clarification response");
-            question = clarificationService.expandQuestionWithContext(question, request.getContext());
-            log.info("Question expanded with context");
+            log.info("Processing clarification response - Original question: '{}', Context: '{}'",
+                    question, request.getContext());
+
+            // Build full conversation history
+            String fullQuestion;
+            if (request.getConversationHistory() != null && !request.getConversationHistory().trim().isEmpty()) {
+                // Use provided conversation history if available
+                fullQuestion = request.getConversationHistory() + " " + request.getContext();
+                log.info("Using conversation history: '{}'", fullQuestion);
+            } else {
+                // Fall back to appending context to current question
+                fullQuestion = question + " " + request.getContext();
+                log.info("Building conversation from question + context: '{}'", fullQuestion);
+            }
+
+            // Use expanded question for further processing
+            question = fullQuestion.trim();
 
             // ITERATIVE CLARIFICATION: Check if the expanded question still needs clarification
             if (clarificationService.needsClarification(question)) {
                 String clarificationQuestion = clarificationService
                         .generateClarificationQuestion(question);
 
-                log.info("Expanded question still needs clarification");
+                log.info("Expanded question still needs clarification: '{}'", question);
 
                 AskResponse wasClarifiedResponse = AskResponse.builder()
                         .clarificationQuestion(clarificationQuestion)
@@ -247,7 +261,7 @@ public class QuestionAnsweringService {
                 .build();
 
         // Save to query history for analytics
-        saveQueryHistory(wasClarified ? normalizedQuestion : question,
+        saveQueryHistory(wasClarified ? question : normalizedQuestion,
                 originalQuestion, response, modelResponse.getModelUsed(),
                 false, null);
 
