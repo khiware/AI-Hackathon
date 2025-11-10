@@ -1,7 +1,7 @@
 package com.askbit.ai.service;
 
 import com.askbit.ai.dto.MetricsResponse;
-import com.askbit.ai.repository.DocumentChunkRepository;
+import com.askbit.ai.model.Document;
 import com.askbit.ai.repository.DocumentRepository;
 import com.askbit.ai.repository.QueryHistoryRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,9 +26,6 @@ class MetricsServiceTest {
     private DocumentRepository documentRepository;
 
     @Mock
-    private DocumentChunkRepository documentChunkRepository;
-
-    @Mock
     private CacheService cacheService;
 
     @InjectMocks
@@ -36,13 +33,23 @@ class MetricsServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(queryHistoryRepository.countModelHitQueries()).thenReturn(100L);
-        when(queryHistoryRepository.findAverageResponseTime()).thenReturn(1500.0);
-        when(queryHistoryRepository.findAverageConfidence()).thenReturn(0.85);
-        when(queryHistoryRepository.countPiiRedactions()).thenReturn(10L);
-        when(queryHistoryRepository.countClarifications()).thenReturn(5L);
-        when(documentRepository.count()).thenReturn(50L);
-        when(documentChunkRepository.count()).thenReturn(500L);
+        // Create mock documents with chunk counts
+        Document doc1 = new Document();
+        doc1.setChunkCount(200);
+
+        Document doc2 = new Document();
+        doc2.setChunkCount(300);
+
+        List<Document> activeDocuments = Arrays.asList(doc1, doc2);
+
+        // Default mocks for common operations
+        lenient().when(queryHistoryRepository.countModelHitQueries()).thenReturn(100L);
+        lenient().when(queryHistoryRepository.findAverageResponseTime()).thenReturn(1500.0);
+        lenient().when(queryHistoryRepository.findAverageConfidence()).thenReturn(0.85);
+        lenient().when(queryHistoryRepository.countPiiRedactions()).thenReturn(10L);
+        lenient().when(queryHistoryRepository.countClarifications()).thenReturn(5L);
+        lenient().when(documentRepository.countByActive(true)).thenReturn(2L);
+        lenient().when(documentRepository.findByActive(true)).thenReturn(activeDocuments);
     }
 
     @Test
@@ -67,8 +74,8 @@ class MetricsServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getTotalQueries()).isEqualTo(100L);
         assertThat(result.getAverageResponseTimeMs()).isEqualTo(1500.0);
-        assertThat(result.getTotalDocuments()).isEqualTo(50L);
-        assertThat(result.getTotalChunks()).isEqualTo(500L);
+        assertThat(result.getTotalDocuments()).isEqualTo(2L); // 2 active documents
+        assertThat(result.getTotalChunks()).isEqualTo(500L); // 200 + 300 chunks
         assertThat(result.getAverageConfidence()).isEqualTo(0.85);
         assertThat(result.getPiiRedactionCount()).isEqualTo(10L);
         assertThat(result.getClarificationCount()).isEqualTo(5L);
@@ -86,6 +93,8 @@ class MetricsServiceTest {
         when(queryHistoryRepository.countClarifications()).thenReturn(null);
         when(queryHistoryRepository.findAllResponseTimesSorted()).thenReturn(null);
         when(queryHistoryRepository.findModelUsageStats()).thenReturn(null);
+        when(documentRepository.countByActive(true)).thenReturn(0L);
+        when(documentRepository.findByActive(true)).thenReturn(Collections.emptyList());
 
         // Act
         MetricsResponse result = metricsService.getMetrics();
