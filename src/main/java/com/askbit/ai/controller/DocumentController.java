@@ -67,5 +67,18 @@ public class DocumentController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    /**
+     * Mark a document as inactive (archive it)
+     */
+    @PutMapping("/{id}/deactivate")
+    public ResponseEntity<String> deactivateDocument(@PathVariable String id) {
+        try {
+            documentProcessingService.deactivateDocument(Long.parseLong(id));
+            return ResponseEntity.ok("Document marked as inactive successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }
 

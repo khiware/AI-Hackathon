@@ -247,12 +247,12 @@ public class QuestionAnsweringService {
                 .build();
 
         // Save to query history for analytics
-        saveQueryHistory(originalQuestion.equals(question) ? normalizedQuestion : question,
+        saveQueryHistory(wasClarified ? normalizedQuestion : question,
                 originalQuestion, response, modelResponse.getModelUsed(),
                 false, null);
 
         // Store in Redis cache with 1-day TTL
-        cacheService.saveToCache(originalQuestion.equals(question) ? cacheKey : "queries::" + question,
+        cacheService.saveToCache(wasClarified ? "queries::" + question : cacheKey,
                 response);
 
         return response;
@@ -346,6 +346,7 @@ public class QuestionAnsweringService {
     private List<Citation> convertChunksToCitations(List<DocumentChunk> chunks) {
         return chunks.stream()
                 .map(this::convertChunkToCitation)
+                .filter(citation -> citation != null) // Filter out null citations from inactive docs
                 .collect(Collectors.toList());
     }
 
@@ -358,6 +359,12 @@ public class QuestionAnsweringService {
         Document document = documentRepository
                 .findByDocumentId(chunk.getDocumentId())
                 .orElse(null);
+
+        // Defensive check: Skip inactive documents (should never happen due to upstream filtering)
+        if (document != null && !document.getActive()) {
+            log.warn("Skipping citation from inactive document: {}", document.getDocumentId());
+            return null;
+        }
 
         Citation.CitationBuilder builder = Citation.builder()
                 .documentId(chunk.getDocumentId())
@@ -388,7 +395,13 @@ public class QuestionAnsweringService {
                     .findByDocumentId(chunk.getDocumentId())
                     .orElse(null);
 
-            String fileName = document != null ? document.getFileName() : "Unknown";
+            // Defensive check: Skip inactive documents
+            if (document == null || !document.getActive()) {
+                log.warn("Skipping chunk from inactive/missing document: {}", chunk.getDocumentId());
+                continue;
+            }
+
+            String fileName = document.getFileName();
             Integer pageNum = chunk.getPageNumber() != null ? chunk.getPageNumber() : 0;
 
             context.append(String.format("[Document %d: %s, Page %d]\n%s\n\n",

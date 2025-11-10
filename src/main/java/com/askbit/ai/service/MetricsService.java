@@ -1,7 +1,6 @@
 package com.askbit.ai.service;
 
 import com.askbit.ai.dto.MetricsResponse;
-import com.askbit.ai.repository.DocumentChunkRepository;
 import com.askbit.ai.repository.DocumentRepository;
 import com.askbit.ai.repository.QueryHistoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +17,6 @@ public class MetricsService {
 
     private final QueryHistoryRepository queryHistoryRepository;
     private final DocumentRepository documentRepository;
-    private final DocumentChunkRepository documentChunkRepository;
     private final CacheService cacheService;
 
     public MetricsResponse getMetrics() {
@@ -29,8 +27,13 @@ public class MetricsService {
         Double avgResponseTime = queryHistoryRepository.findAverageResponseTime();
         Double p95Latency = calculateP95Latency();
         Double cacheHitRate = calculateCacheHitRate();
-        Long totalDocuments = documentRepository.count();
-        Long totalChunks = documentChunkRepository.count();
+
+        // Count only active documents
+        Long totalDocuments = documentRepository.countByActive(true);
+
+        // Count chunks only from active documents
+        Long totalChunks = countChunksFromActiveDocuments();
+
         Double avgConfidence = queryHistoryRepository.findAverageConfidence();
         Long piiRedactionCount = queryHistoryRepository.countPiiRedactions();
         Long clarificationCount = queryHistoryRepository.countClarifications();
@@ -53,6 +56,17 @@ public class MetricsService {
                 .mostUsedModel(mostUsedModel)
                 .estimatedCost(estimatedCost)
                 .build();
+    }
+
+    /**
+     * Count chunks only from active documents by summing their chunkCount field
+     */
+    private Long countChunksFromActiveDocuments() {
+        // Get all active documents and sum their chunk counts
+        return documentRepository.findByActive(true)
+                .stream()
+                .mapToLong(doc -> doc.getChunkCount() != null ? doc.getChunkCount() : 0)
+                .sum();
     }
 
     /**

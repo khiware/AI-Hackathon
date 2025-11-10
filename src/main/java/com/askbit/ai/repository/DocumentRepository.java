@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface DocumentRepository extends JpaRepository<Document, Long> {
     Optional<Document> findByDocumentId(String documentId);
     List<Document> findByActive(Boolean active);
+    Long countByActive(Boolean active);
     List<Document> findByFileNameContainingIgnoreCase(String fileName);
     Optional<Document> findByDocumentIdAndVersion(String documentId, String version);
     List<Document> findByIndexed(Boolean indexed);

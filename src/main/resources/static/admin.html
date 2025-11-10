@@ -147,6 +147,10 @@
             background: #6c757d;
         }
 
+        .btn-warning {
+            background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%);
+        }
+
         .table {
             width: 100%;
             border-collapse: collapse;
@@ -565,14 +569,14 @@
                         <div class="metric-subtitle">answer quality score</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-label">Total Documents</div>
+                        <div class="metric-label">Active Documents</div>
                         <div class="metric-value" id="totalDocs">-</div>
-                        <div class="metric-subtitle">in knowledge base</div>
+                        <div class="metric-subtitle">currently in use</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-label">Total Chunks</div>
+                        <div class="metric-label">Active Document Chunks</div>
                         <div class="metric-value" id="totalChunks">-</div>
-                        <div class="metric-subtitle">searchable segments</div>
+                        <div class="metric-subtitle">from active documents</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Most Used Model</div>
@@ -694,13 +698,17 @@
                 container.innerHTML = documents.map(doc => `
                     <div class="document-item">
                         <div class="document-info">
-                            <div class="document-name">📄 ${doc.fileName}</div>
+                            <div class="document-name">
+                                📄 ${doc.fileName}
+                                ${doc.active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-warning">Inactive</span>'}
+                            </div>
                             <div class="document-meta">
                                 Version ${doc.version} • Uploaded ${new Date(doc.uploadedAt).toLocaleDateString()} • ${doc.chunkCount || 0} chunks
                             </div>
                         </div>
                         <div class="document-actions">
-                            <button class="icon-btn" onclick="deleteDocument('${doc.id}')" title="Delete">🗑️</button>
+                            ${doc.active ? `<button class="icon-btn" onclick="archiveDocument('${doc.id}', '${doc.fileName}')" title="Archive Document">📦</button>` : ''}
+                            <button class="icon-btn" onclick="deleteDocument('${doc.id}', '${doc.fileName}')" title="Delete">🗑️</button>
                         </div>
                     </div>
                 `).join('');
@@ -819,8 +827,8 @@
             `;
         }
 
-        async function deleteDocument(docId) {
-            if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+        async function deleteDocument(docId, fileName) {
+            if (!confirm(`⚠️ DELETE DOCUMENT\n\nAre you sure you want to permanently delete "${fileName}"?\n\n⚠️ WARNING: This action CANNOT be undone and there is NO WAY to recover the document after deletion.\n\nClick OK to permanently delete, or Cancel to keep the document.`)) {
                 return;
             }
 
@@ -832,12 +840,36 @@
                 if (response.ok) {
                     loadDocuments();
                     loadMetrics();
+                    alert('✅ Document deleted successfully');
                 } else {
-                    alert('Failed to delete document');
+                    alert('❌ Failed to delete document');
                 }
             } catch (error) {
                 console.error('Error deleting document:', error);
-                alert('Error deleting document');
+                alert('❌ Error deleting document');
+            }
+        }
+
+        async function archiveDocument(docId, fileName) {
+            if (!confirm(`📦 ARCHIVE DOCUMENT\n\nAre you sure you want to mark "${fileName}" as inactive?\n\nℹ️ This will:\n• Remove the document from active searches\n• Prevent it from being used to answer questions\n• Keep the document in the database for audit purposes\n\n⚠️ Note: To re-activate this document later, please contact the support team.\n\nClick OK to archive, or Cancel to keep active.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/v1/documents/${docId}/deactivate`, {
+                    method: 'PUT'
+                });
+
+                if (response.ok) {
+                    loadDocuments();
+                    loadMetrics();
+                    alert('✅ Document archived successfully');
+                } else {
+                    alert('❌ Failed to archive document');
+                }
+            } catch (error) {
+                console.error('Error archiving document:', error);
+                alert('❌ Error archiving document');
             }
         }
 

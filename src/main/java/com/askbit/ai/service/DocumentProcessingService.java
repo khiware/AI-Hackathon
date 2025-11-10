@@ -84,6 +84,20 @@ public class DocumentProcessingService {
                     .build();
         }
 
+        // Mark all previous versions of the same file as inactive
+        List<Document> previousVersions = documentRepository
+                .findByFileNameAndActiveOrderByUploadedAtDesc(fileName, true);
+
+        if (!previousVersions.isEmpty()) {
+            for (Document previousVersion : previousVersions) {
+                previousVersion.setActive(false);
+                previousVersion.setLastModifiedAt(LocalDateTime.now());
+                documentRepository.save(previousVersion);
+                log.info("Marked previous version '{}' (documentId: {}) as inactive",
+                        previousVersion.getVersion(), previousVersion.getDocumentId());
+            }
+        }
+
         // Create storage directory if it doesn't exist
         Path storagePath = Paths.get(documentStoragePath);
         if (!Files.exists(storagePath)) {
@@ -116,30 +130,28 @@ public class DocumentProcessingService {
         documentRepository.save(document);
 
         // Process document based on type
-        List<DocumentChunk> chunks;
+        int chunksSize;
         int pageCount = 0;
 
 
         if (fileType.equalsIgnoreCase("pdf")) {
             // PDF processing saves chunks internally, returns dummy list
-            chunks = processPdfDocument(filePath.toFile(), document);
+            chunksSize = processPdfDocument(filePath.toFile(), document);
             pageCount = getPageCountFromPdf(filePath.toFile());
             // Don't save chunks again - already saved in processPdfDocument!
         } else if (fileType.equalsIgnoreCase("docx") || fileType.equalsIgnoreCase("doc")) {
-            chunks = processDocxDocument(filePath.toFile(), document);
-            // Save chunks for non-PDF documents
-            documentChunkRepository.saveAll(chunks);
+            chunksSize = processDocxDocument(filePath.toFile(), document);
+            pageCount = getPageCountFromDocx(filePath.toFile());
         } else if (fileType.equalsIgnoreCase("md") || fileType.equalsIgnoreCase("txt")) {
-            chunks = processTextDocument(filePath.toFile(), document);
-            // Save chunks for non-PDF documents
-            documentChunkRepository.saveAll(chunks);
+            chunksSize = processTextDocument(filePath.toFile(), document);
+            pageCount = 1; // Text/MD files are considered single page
         } else {
             throw new IllegalArgumentException("Unsupported file type: " + fileType);
         }
 
         // Update document with page count and indexed status
         document.setPageCount(pageCount);
-        document.setChunkCount(chunks.size());
+        document.setChunkCount(chunksSize);
         document.setIndexed(true);
         documentRepository.save(document);
 
@@ -157,7 +169,7 @@ public class DocumentProcessingService {
                 .success(true)
                 .message("Document uploaded and processed successfully")
                 .pagesProcessed(pageCount)
-                .chunksCreated(chunks.size())
+                .chunksCreated(chunksSize)
                 .build();
 
     }
@@ -166,7 +178,7 @@ public class DocumentProcessingService {
      * MEMORY-OPTIMIZED: Process PDF page-by-page with immediate saves
      * Prevents OutOfMemoryError by not accumulating all chunks in memory
      */
-    private List<DocumentChunk> processPdfDocument(File file, Document document) throws IOException {
+    private int processPdfDocument(File file, Document document) throws IOException {
         int totalChunksCreated = 0;
         int globalChunkIndex = 0; // Global counter to ensure unique chunk_index across all pages
         String documentId = document.getDocumentId();
@@ -225,26 +237,13 @@ public class DocumentProcessingService {
             }
         }
 
-        // Return empty list since we already saved everything
         // Just return count for logging
         log.info("PDF processing complete: {} total chunks created", totalChunksCreated);
-
-        // Return a dummy list with size info for the caller
-        List<DocumentChunk> result = new ArrayList<>();
-        // Add a single dummy chunk just to carry the count
-        if (totalChunksCreated > 0) {
-            DocumentChunk dummyChunk = DocumentChunk.builder()
-                    .documentId(documentId)
-                    .chunkIndex(0)
-                    .content("PROCESSED")
-                    .build();
-            result.add(dummyChunk);
-        }
-        return result;
+        return totalChunksCreated;
     }
 
-    private List<DocumentChunk> processDocxDocument(File file, Document document) throws IOException {
-        List<DocumentChunk> chunks = new ArrayList<>();
+    private int processDocxDocument(File file, Document document) throws IOException {
+        List<DocumentChunk> chunks;
 
         try (FileInputStream fis = new FileInputStream(file);
              XWPFDocument xwpfDocument = new XWPFDocument(fis)) {
@@ -259,14 +258,19 @@ public class DocumentProcessingService {
             chunks = createChunksFromText(contentBuilder.toString(), document, null, 0);
             chunks = validateChunks(chunks, document.getDocumentId());
         }
+        documentChunkRepository.saveAll(chunks);
 
-        return chunks;
+        return chunks.size();
     }
 
-    private List<DocumentChunk> processTextDocument(File file, Document document) throws IOException {
+    private int processTextDocument(File file, Document document) throws IOException {
         String content = Files.readString(file.toPath());
         List<DocumentChunk> chunks = createChunksFromText(content, document, null, 0);
-        return validateChunks(chunks, document.getDocumentId());
+        chunks = validateChunks(chunks, document.getDocumentId());
+
+        documentChunkRepository.saveAll(chunks);
+
+        return chunks.size();
     }
 
     /**
@@ -503,6 +507,43 @@ public class DocumentProcessingService {
         }
     }
 
+    /**
+     * Get page count from Word document (DOCX)
+     * Note: Apache POI doesn't provide direct page count API for DOCX
+     * This estimates based on content length and average characters per page
+     */
+    private int getPageCountFromDocx(File file) throws IOException {
+        try (FileInputStream fis = new FileInputStream(file);
+             XWPFDocument xwpfDocument = new XWPFDocument(fis)) {
+
+            // Try to get page count from document properties
+            try {
+                org.apache.poi.ooxml.POIXMLProperties props = xwpfDocument.getProperties();
+                if (props != null && props.getExtendedProperties() != null) {
+                    org.apache.poi.ooxml.POIXMLProperties.ExtendedProperties extProps = props.getExtendedProperties();
+                    if (extProps.getPages() > 0) {
+                        return extProps.getPages();
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Could not read page count from document properties: {}", e.getMessage());
+            }
+
+            // Fallback: Estimate based on content length
+            // Average ~3000 characters per page (rough estimate)
+            StringBuilder content = new StringBuilder();
+            for (XWPFParagraph paragraph : xwpfDocument.getParagraphs()) {
+                content.append(paragraph.getText());
+            }
+
+            int charCount = content.length();
+            int estimatedPages = Math.max(1, (int) Math.ceil(charCount / 3000.0));
+
+            log.debug("Estimated {} pages for DOCX based on {} characters", estimatedPages, charCount);
+            return estimatedPages;
+        }
+    }
+
     private String convertEmbeddingToString(List<Double> embedding) {
         if (embedding == null || embedding.isEmpty()) {
             return "";
@@ -534,6 +575,31 @@ public class DocumentProcessingService {
         documentRepository.deleteById(id);
 
         log.info("Document deleted: {}", id);
+    }
+
+    /**
+     * Mark a document as inactive (archive it)
+     */
+    @Transactional
+    public void deactivateDocument(Long id) {
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + id));
+
+        if (!document.getActive()) {
+            log.warn("Document {} is already inactive", id);
+            throw new IllegalArgumentException("Document is already inactive");
+        }
+
+        // Mark as inactive
+        document.setActive(false);
+        document.setLastModifiedAt(LocalDateTime.now());
+        documentRepository.save(document);
+
+        // Invalidate cache since document availability has changed
+        log.info("Invalidating all caches after deactivating document {}", id);
+        adminService.invalidateAllCaches();
+
+        log.info("Document {} marked as inactive", id);
     }
 
     /**
