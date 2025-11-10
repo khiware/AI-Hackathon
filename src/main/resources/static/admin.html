@@ -202,6 +202,26 @@
             color: #0c5460;
         }
 
+        .badge-version {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        .badge-inactive {
+            background: #e9ecef;
+            color: #6c757d;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
         .upload-area {
             border: 2px dashed #ccc;
             border-radius: 8px;
@@ -324,44 +344,82 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px;
+            padding: 14px 16px;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .document-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
         }
 
         .document-info {
             flex: 1;
+            min-width: 0;
         }
 
         .document-name {
             font-weight: 600;
             color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
         }
 
         .document-meta {
             font-size: 12px;
             color: #999;
-            margin-top: 4px;
+            margin-top: 6px;
         }
 
         .document-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            align-items: center;
+            margin-left: 16px;
         }
 
         .icon-btn {
-            background: none;
-            border: none;
+            background: white;
+            border: 1px solid #e0e0e0;
             cursor: pointer;
-            font-size: 18px;
-            padding: 8px;
-            border-radius: 4px;
-            transition: background 0.3s;
+            font-size: 16px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .icon-btn:hover {
-            background: #f0f0f0;
+            background: #f8f9fa;
+            border-color: #667eea;
+            transform: translateY(-1px);
+        }
+
+        .icon-btn.archive-btn {
+            color: #f57c00;
+            border-color: #ffecb3;
+        }
+
+        .icon-btn.archive-btn:hover {
+            background: #fff3e0;
+            border-color: #f57c00;
+        }
+
+        .icon-btn.delete-btn {
+            color: #dc3545;
+            border-color: #f8d7da;
+        }
+
+        .icon-btn.delete-btn:hover {
+            background: #fff5f5;
+            border-color: #dc3545;
         }
 
         .tabs {
@@ -700,15 +758,19 @@
                         <div class="document-info">
                             <div class="document-name">
                                 📄 ${doc.fileName}
-                                ${doc.active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-warning">Inactive</span>'}
+                                <span class="badge-version">v${doc.version}</span>
                             </div>
                             <div class="document-meta">
-                                Version ${doc.version} • Uploaded ${new Date(doc.uploadedAt).toLocaleDateString()} • ${doc.chunkCount || 0} chunks
+                                Uploaded ${new Date(doc.uploadedAt).toLocaleDateString()} • ${doc.chunkCount || 0} chunks • ${doc.pageCount || 0} pages
                             </div>
                         </div>
                         <div class="document-actions">
-                            ${doc.active ? `<button class="icon-btn" onclick="archiveDocument('${doc.id}', '${doc.fileName}')" title="Archive Document">📦</button>` : ''}
-                            <button class="icon-btn" onclick="deleteDocument('${doc.id}', '${doc.fileName}')" title="Delete">🗑️</button>
+                            <button class="icon-btn archive-btn" onclick="archiveDocument('${doc.id}', '${doc.fileName}')" title="Archive this document">
+                                <span>📦</span><span style="font-size: 12px;">Archive</span>
+                            </button>
+                            <button class="icon-btn delete-btn" onclick="deleteDocument('${doc.id}', '${doc.fileName}')" title="Delete permanently">
+                                <span>🗑️</span><span style="font-size: 12px;">Delete</span>
+                            </button>
                         </div>
                     </div>
                 `).join('');
@@ -828,7 +890,7 @@
         }
 
         async function deleteDocument(docId, fileName) {
-            if (!confirm(`⚠️ DELETE DOCUMENT\n\nAre you sure you want to permanently delete "${fileName}"?\n\n⚠️ WARNING: This action CANNOT be undone and there is NO WAY to recover the document after deletion.\n\nClick OK to permanently delete, or Cancel to keep the document.`)) {
+            if (!confirm(`Delete "${fileName}" permanently?\n\n⚠️ This CANNOT be undone and there is NO way to recover it.\n\nAre you sure?`)) {
                 return;
             }
 
@@ -851,7 +913,7 @@
         }
 
         async function archiveDocument(docId, fileName) {
-            if (!confirm(`📦 ARCHIVE DOCUMENT\n\nAre you sure you want to mark "${fileName}" as inactive?\n\nℹ️ This will:\n• Remove the document from active searches\n• Prevent it from being used to answer questions\n• Keep the document in the database for audit purposes\n\n⚠️ Note: To re-activate this document later, please contact the support team.\n\nClick OK to archive, or Cancel to keep active.`)) {
+            if (!confirm(`Archive "${fileName}"?\n\nThis will remove it from searches but keep it in the database.\n\n⚠️ Contact support to re-activate.`)) {
                 return;
             }
 
