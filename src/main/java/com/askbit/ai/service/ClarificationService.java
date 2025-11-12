@@ -93,20 +93,13 @@ public class ClarificationService {
     }
 
     public boolean needsClarification(String question) {
-        if (question == null || question.trim().isEmpty()) {
-            return false;
-        }
-
-        String normalizedQuestion = question.toLowerCase().trim();
-
         // Check if question is too vague
-        if (isVagueQuestion(normalizedQuestion)) {
+        if (isVagueQuestion(question)) {
             return true;
         }
 
         // Check if question contains ambiguous terms without context
-        return containsAmbiguousTerm(normalizedQuestion) &&
-               !hasSpecificContext(normalizedQuestion);
+        return containsAmbiguousTerm(question) && !hasSpecificContext(question);
     }
 
     public String generateClarificationQuestion(String question) {
@@ -139,10 +132,7 @@ public class ClarificationService {
                 return true;
             }
         }
-
-        // Check if question is too short (likely too vague)
-        String[] words = question.split("\\s+");
-        return words.length < 4;
+        return false;
     }
 
     private boolean containsAmbiguousTerm(String question) {

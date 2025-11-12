@@ -15,6 +15,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,106 +56,50 @@ public class QuestionAnsweringService {
     public AskResponse answerQuestion(AskRequest request) {
         long startTime = System.currentTimeMillis();
 
-        String question = request.getQuestion();
+        // Track user request for question and clarification context
+        String originalQuestion = request.getQuestion();
+        boolean wasClarified = request.getContext() != null && !request.getContext().trim().isEmpty();
 
         // Validate input
-        if (question == null || question.trim().isEmpty()) {
+        if (originalQuestion == null || originalQuestion.trim().isEmpty()) {
             return buildErrorResponse("Question cannot be empty");
         }
 
+        // Normalize question for caching
+        String normalizedQuestion = normalizeQuestion(originalQuestion);
+
         // Check for greetings and conversational inputs
-        if (isGreeting(question)) {
-            return buildGreetingResponse(question, System.currentTimeMillis() - startTime);
+        if (isGreeting(normalizedQuestion)) {
+            return buildGreetingResponse(System.currentTimeMillis() - startTime);
         }
 
         // STEP 1: Preprocess question - handle spelling mistakes, special characters, etc.
-        String originalQuestion = question;
-        question = queryPreprocessingService.preprocessQuestion(question);
-
-        if (!originalQuestion.equals(question)) {
-            // Mask PII before logging to prevent exposure of names, phone numbers, emails etc.
-            String maskedOriginal = piiRedactionService.redactPii(originalQuestion);
-            String maskedProcessed = piiRedactionService.redactPii(question);
-            log.info("Question preprocessed (PII masked): '{}' -> '{}'", maskedOriginal, maskedProcessed);
-        }
+        String preprocessedQuestion = queryPreprocessingService.preprocessQuestion(normalizedQuestion);
 
         // STEP 2: Redact PII from question
-        String questionBeforePiiRedaction = question;
-        question = piiRedactionService.redactPii(question);
-        boolean piiRedacted = !questionBeforePiiRedaction.equals(question);
+        String redactedQuestion = piiRedactionService.redactPii(preprocessedQuestion);
+        boolean piiRedacted = !originalQuestion.equals(redactedQuestion);
 
-        if (piiRedacted) {
-            log.info("PII detected and redacted in question");
-        }
-
-        // Normalize question for caching
-        String normalizedQuestion = normalizeQuestion(question);
-
-        // Track if user provided clarification context
-        boolean wasClarified = request.getContext() != null && !request.getContext().trim().isEmpty();
-
-        // Try to get from Redis cache first
-        String cacheKey = "queries::" + normalizedQuestion;
-        AskResponse cachedResponse = (AskResponse) cacheService.getFromCache(cacheKey);
-
-        // Keep cached answer text for potential failover (even if returning cached response now)
-        String cachedAnswerText = (cachedResponse != null) ? cachedResponse.getAnswer() : null;
-
-        if (cachedResponse != null) {
-            cacheService.incrementCacheHit("queriesCacheHits");
-            AskResponse newCachedResponse = buildCachedResponse(cachedResponse,
-                    System.currentTimeMillis() - startTime);
-            saveQueryHistory(normalizedQuestion, originalQuestion, newCachedResponse,
-                    newCachedResponse.getModelUsed(), false, null);
-            return newCachedResponse;
-        }
-
-        // TEMPORAL ANALYSIS: Analyze question for version/year context
-        TemporalContext temporalContext =
-                temporalQueryAnalyzer.analyzeQuestion(question);
-
-        // If temporal analysis needs clarification (e.g., "old policy" without year)
-        if (temporalContext.isNeedsClarification()) {
-            log.info("Temporal analysis requires clarification");
-            AskResponse needClarificationResponse = AskResponse.builder()
-                    .clarificationQuestion(temporalContext.getClarificationReason())
-                    .needsClarification(true)
-                    .cached(false)
-                    .piiRedacted(piiRedacted)
-                    .responseTimeMs(System.currentTimeMillis() - startTime)
-                    .build();
-
-            saveQueryHistory(question, originalQuestion, needClarificationResponse,
-                    null, wasClarified, temporalContext.getClarificationReason());
-            return needClarificationResponse;
-        }
         // Handle clarification flow:
         // If user provided context (responding to a clarification question), expand the question
         if (wasClarified) {
-            log.info("Processing clarification response - Original question: '{}', Context: '{}'",
-                    question, request.getContext());
+            String redactedContext = piiRedactionService.redactPii(request.getContext());
 
             // Build full conversation history
-            String fullQuestion;
             if (request.getConversationHistory() != null && !request.getConversationHistory().trim().isEmpty()) {
-                // Use provided conversation history if available
-                fullQuestion = request.getConversationHistory() + " " + request.getContext();
-                log.info("Using conversation history: '{}'", fullQuestion);
+                redactedQuestion = (request.getConversationHistory() + " " + redactedContext).trim();
+                log.info("Using conversation history: '{}'", redactedQuestion);
             } else {
-                // Fall back to appending context to current question
-                fullQuestion = question + " " + request.getContext();
-                log.info("Building conversation from question + context: '{}'", fullQuestion);
+                redactedQuestion = (redactedContext + " " + redactedQuestion).trim();
+                log.info("Building conversation from question + context: '{}'", redactedQuestion);
             }
 
-            // Use expanded question for further processing
-            question = fullQuestion.trim();
-
             // ITERATIVE CLARIFICATION: Check if the expanded question still needs clarification
-            if (clarificationService.needsClarification(question)) {
+            if (clarificationService.needsClarification(redactedQuestion)) {
                 String clarificationQuestion = clarificationService
-                        .generateClarificationQuestion(question);
+                        .generateClarificationQuestion(redactedQuestion);
 
-                log.info("Expanded question still needs clarification: '{}'", question);
+                log.info("Expanded question still needs clarification: '{}'", redactedQuestion);
 
                 AskResponse wasClarifiedResponse = AskResponse.builder()
                         .clarificationQuestion(clarificationQuestion)
@@ -163,19 +108,17 @@ public class QuestionAnsweringService {
                         .piiRedacted(piiRedacted)
                         .responseTimeMs(System.currentTimeMillis() - startTime)
                         .build();
-                saveQueryHistory(question, originalQuestion,
+                saveQueryHistory(redactedQuestion, originalQuestion,
                         wasClarifiedResponse, null, true,
                         clarificationQuestion);
                 return wasClarifiedResponse;
             }
-
-            // Re-analyze temporal context after clarification
-            temporalContext = temporalQueryAnalyzer.analyzeQuestion(question);
         }
-        // Otherwise, check if question needs clarification (first pass)
-        else if (clarificationService.needsClarification(question)) {
+
+        // Check if question needs clarification
+        if (clarificationService.needsClarification(redactedQuestion)) {
             String clarificationQuestion = clarificationService
-                    .generateClarificationQuestion(question);
+                    .generateClarificationQuestion(redactedQuestion);
 
             log.info("Question needs clarification");
 
@@ -187,9 +130,42 @@ public class QuestionAnsweringService {
                     .piiRedacted(piiRedacted)
                     .responseTimeMs(System.currentTimeMillis() - startTime)
                     .build();
-            saveQueryHistory(question, originalQuestion,
+            saveQueryHistory(redactedQuestion, originalQuestion,
                     clarificationResponse, null, true,
                     clarificationQuestion);
+            return clarificationResponse;
+        }
+
+        // Try to get from Redis cache first
+        String cacheKey = "queries::" + redactedQuestion;
+        AskResponse cachedAskResponse = (AskResponse) cacheService.getFromCache(cacheKey);
+
+        if (!ObjectUtils.isEmpty(cachedAskResponse)) {
+            cacheService.incrementCacheHit("queriesCacheHits");
+            AskResponse cachedResponse = buildCachedResponse(cachedAskResponse,
+                    System.currentTimeMillis() - startTime);
+            saveQueryHistory(redactedQuestion, originalQuestion, cachedResponse,
+                    cachedResponse.getModelUsed(), false, null);
+            return cachedResponse;
+        }
+
+        // TEMPORAL ANALYSIS: Analyze question for version/year context
+        TemporalContext temporalContext =
+                temporalQueryAnalyzer.analyzeQuestion(redactedQuestion);
+
+        // If temporal analysis needs clarification (e.g., "old policy" without year)
+        if (temporalContext.isNeedsClarification()) {
+            log.info("Temporal analysis requires clarification");
+            AskResponse clarificationResponse = AskResponse.builder()
+                    .clarificationQuestion(temporalContext.getClarificationReason())
+                    .needsClarification(true)
+                    .cached(false)
+                    .piiRedacted(piiRedacted)
+                    .responseTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
+
+            saveQueryHistory(redactedQuestion, originalQuestion, clarificationResponse,
+                    null, wasClarified, temporalContext.getClarificationReason());
             return clarificationResponse;
         }
 
@@ -208,11 +184,11 @@ public class QuestionAnsweringService {
         if (useHybridSearch) {
             log.info("Using hybrid search (vector + keyword) for retrieval with version filter");
             chunks = hybridRetrievalService.hybridSearchWithVersionFilter(
-                    question, maxRetrievalResults, targetYear);
+                    redactedQuestion, maxRetrievalResults, targetYear);
             citations = convertChunksToCitations(chunks);
         } else {
             log.info("Using traditional vector-only search for retrieval with version filter");
-            citations = retrievalService.retrieveRelevantChunksWithVersionFilter(question, targetYear);
+            citations = retrievalService.retrieveRelevantChunksWithVersionFilter(redactedQuestion, targetYear);
             chunks = null; // Not available in traditional search
         }
 
@@ -228,46 +204,40 @@ public class QuestionAnsweringService {
             : buildContextFromCitations(citations);
 
         // Build prompt for LLM
-        String prompt = buildPrompt(question, context);
+        String prompt = buildPrompt(redactedQuestion, context);
 
         // Get response from model with failover support (pass cached answer if available)
-        ModelResponse modelResponse =
-                modelRouterService.generateResponseWithFailover(prompt, cachedAnswerText);
+        ModelResponse modelResponse = modelRouterService.generateResponse(prompt);
 
         // Note: failover mechanism will return success=true with fallback message if needed
         // So we don't need to check for failure here - just use the content
 
         // Redact PII from answer
         String answer = piiRedactionService.redactPii(modelResponse.getContent());
+        boolean piiRedactedResponse = !modelResponse.getContent().equals(answer);
 
         // Check if the answer indicates no clear information was found
         boolean isUnclearAnswer = isAnswerUnclear(answer);
 
-        // If answer is unclear, don't include citations
-        List<Citation> finalCitations = isUnclearAnswer ? List.of() : citations;
-        double confidence = isUnclearAnswer ? 0.0 : calculateConfidence(citations);
-
         // Build response
         AskResponse response = AskResponse.builder()
                 .answer(answer)
-                .citations(finalCitations)
-                .confidence(confidence)
+                .citations(isUnclearAnswer ? List.of() : citations)
+                .confidence(isUnclearAnswer ? 0.0 : calculateConfidence(citations))
                 .cached(false)
                 .needsClarification(false)
                 .responseTimeMs(System.currentTimeMillis() - startTime)
                 .modelUsed(modelResponse.getModelUsed())
                 .piiRedacted(piiRedacted)
-                .preprocessedQuestion(originalQuestion.equals(question) ? null : question)
+                .preprocessedQuestion(normalizedQuestion.equals(preprocessedQuestion) ? null : preprocessedQuestion)
                 .build();
 
         // Save to query history for analytics
-        saveQueryHistory(wasClarified ? question : normalizedQuestion,
-                originalQuestion, response, modelResponse.getModelUsed(),
-                false, null);
+        saveQueryHistory(redactedQuestion, originalQuestion, response,
+                modelResponse.getModelUsed(), false, null);
 
         // Store in Redis cache with 1-day TTL
-        cacheService.saveToCache(wasClarified ? "queries::" + question : cacheKey,
-                response);
+        cacheService.saveToCache(cacheKey, response);
 
         return response;
     }
@@ -477,12 +447,12 @@ public class QuestionAnsweringService {
 
     private AskResponse buildCachedResponse(AskResponse response, long totalTime) {
         // Check if cached answer is unclear - if so, remove citations
-        boolean isUnclear = isAnswerUnclear(response.getAnswer());
+        boolean isUnclearAnswer = isAnswerUnclear(response.getAnswer());
 
         return AskResponse.builder()
                 .answer(response.getAnswer())
-                .citations(isUnclear ? List.of() : response.getCitations())
-                .confidence(isUnclear ? 0.0 : response.getConfidence())
+                .citations(isUnclearAnswer ? List.of() : response.getCitations())
+                .confidence(isUnclearAnswer ? 0.0 : response.getConfidence())
                 .cached(true)  // Mark as cached
                 .needsClarification(response.getNeedsClarification())
                 .clarificationQuestion(response.getClarificationQuestion())
@@ -565,22 +535,18 @@ public class QuestionAnsweringService {
     }
 
     private boolean isGreeting(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return false;
-        }
-        String normalized = input.toLowerCase().trim().replaceAll("[^a-z\\s]", "");
         String[] greetings = {"hello", "hi", "hey", "hola", "greetings", "good morning",
                               "good afternoon", "good evening", "whats up", "how are you",
                               "howdy", "sup", "yo", "hii", "helloo", "heyy"};
         for (String greeting : greetings) {
-            if (normalized.equals(greeting) || normalized.startsWith(greeting + " ")) {
+            if (input.equals(greeting) || input.startsWith(greeting + " ")) {
                 return true;
             }
         }
         return false;
     }
 
-    private AskResponse buildGreetingResponse(String greeting, long responseTime) {
+    private AskResponse buildGreetingResponse(long responseTime) {
         String answer = "Hello! 👋 I'm AskBit.AI, your AI-powered policy assistant. Ask me anything about company policies, HR, benefits, leave, or expenses!";
         log.info("Responding to greeting with welcome message");
         return AskResponse.builder()

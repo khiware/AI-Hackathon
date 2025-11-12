@@ -35,8 +35,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     /**
      * Find documents uploaded before a specific year
      */
-    @Query("SELECT d FROM Document d WHERE d.active = true AND YEAR(d.uploadedAt) <= :year " +
+    @Query("SELECT d FROM Document d WHERE YEAR(d.uploadedAt) <= :year " +
            "AND d.uploadedAt = (SELECT MAX(d2.uploadedAt) FROM Document d2 " +
-           "WHERE d2.fileName = d.fileName AND d2.active = true AND YEAR(d2.uploadedAt) <= :year)")
+           "WHERE d2.fileName = d.fileName AND YEAR(d2.uploadedAt) <= :year)")
     List<Document> findLatestVersionsBeforeYear(@Param("year") int year);
 }

@@ -47,12 +47,8 @@ public class ModelRouterService {
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     public ModelResponse generateResponse(String prompt) {
-        return generateResponseWithFailover(prompt, null);
-    }
-
-    public ModelResponse generateResponseWithFailover(String prompt, String cachedResponse) {
         // Try primary model first
-        ModelResponse primaryResponse = attemptModelCall(prompt, primaryModel, 1, "primary");
+        ModelResponse primaryResponse = attemptModelCall(prompt, primaryModel, "primary");
 
         if (primaryResponse.getSuccess()) {
             return primaryResponse;
@@ -64,7 +60,7 @@ public class ModelRouterService {
         // If primary failed, try secondary model
         if (fallbackEnabled && secondaryModel != null && !secondaryModel.isEmpty()) {
             log.warn("Primary model failed, attempting secondary model: {}", secondaryModel);
-            ModelResponse secondaryResponse = attemptModelCall(prompt, secondaryModel, 1, "secondary");
+            ModelResponse secondaryResponse = attemptModelCall(prompt, secondaryModel, "secondary");
 
             if (secondaryResponse.getSuccess()) {
                 logFailoverEvent("SECONDARY_SUCCESS", secondaryModel, "Failover successful");
@@ -72,22 +68,6 @@ public class ModelRouterService {
             }
 
             logFailoverEvent("SECONDARY_FAILED", secondaryModel, secondaryResponse.getError());
-        }
-
-        // If both models failed, try cached response
-        if (cachedResponse != null && !cachedResponse.isEmpty()) {
-            log.warn("Both models failed, using cached response");
-            logFailoverEvent("CACHE_FALLBACK", "cached", "Using cached response");
-
-            return ModelResponse.builder()
-                    .content(cachedResponse)
-                    .modelUsed("cached")
-                    .responseTimeMs(0L)
-                    .fromCache(true)
-                    .success(true)
-                    .failoverUsed(true)
-                    .failoverReason("Both primary and secondary models failed")
-                    .build();
         }
 
         // Final fallback: return user-friendly error message
@@ -105,11 +85,11 @@ public class ModelRouterService {
                 .build();
     }
 
-    private ModelResponse attemptModelCall(String prompt, String modelName, int attemptNumber, String modelType) {
+    private ModelResponse attemptModelCall(String prompt, String modelName, String modelType) {
         long startTime = System.currentTimeMillis();
 
         try {
-            log.debug("Attempting {} model: {} (attempt {})", modelType, modelName, attemptNumber);
+            log.debug("Attempting {} model: {} (attempt {})", modelType, modelName, 1);
 
             // Create callable for timeout handling
             Callable<ChatResponse> task = () -> {

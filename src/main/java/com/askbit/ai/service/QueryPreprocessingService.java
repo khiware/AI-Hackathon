@@ -59,7 +59,6 @@ public class QueryPreprocessingService {
         SPELLING_CORRECTIONS.put("appraisel", "appraisal");
         SPELLING_CORRECTIONS.put("appraisal", "appraisal");
         SPELLING_CORRECTIONS.put("seperation", "separation");
-        SPELLING_CORRECTIONS.put("seperation", "separation");
         SPELLING_CORRECTIONS.put("releiving", "relieving");
         SPELLING_CORRECTIONS.put("reliving", "relieving");
         SPELLING_CORRECTIONS.put("maturnity", "maternity");
@@ -108,25 +107,15 @@ public class QueryPreprocessingService {
     }
 
     /**
-     * Preprocess the user's question by ONLY fixing spelling and grammar mistakes.
+     * Preprocess the user's normalizedQuestion by ONLY fixing spelling and grammar mistakes.
      * Other transformations like abbreviation expansion are NOT applied unless there's an error.
      *
-     * @param question Original user question
-     * @return Preprocessed question (only if errors were found)
+     * @param normalizedQuestion Original user normalizedQuestion
+     * @return Preprocessed normalizedQuestion (only if errors were found)
      */
-    public String preprocessQuestion(String question) {
-        if (question == null || question.trim().isEmpty()) {
-            return question;
-        }
-
-        // Mask PII before logging to prevent sensitive data in logs
-        String maskedForLogging = piiRedactionService.redactPii(question);
-        log.debug("Original question (PII masked): {}", maskedForLogging);
-
-        String processed = question;
-
+    public String preprocessQuestion(String normalizedQuestion) {
         // Step 1: Normalize whitespace (excessive spaces are grammar errors)
-        processed = normalizeWhitespace(processed);
+        String processed = normalizeWhitespace(normalizedQuestion);
 
         // Step 2: Clean excessive special characters (considered errors)
         processed = cleanSpecialCharacters(processed);
@@ -134,20 +123,11 @@ public class QueryPreprocessingService {
         // Step 3: Fix common spelling mistakes ONLY
         processed = correctSpellingMistakes(processed);
 
-        // Step 4: Fix basic grammar issues (missing question marks, etc.)
+        // Step 4: Fix basic grammar issues (missing normalizedQuestion marks, etc.)
         processed = fixBasicGrammar(processed);
 
         // Step 5: Final cleanup
-        processed = processed.trim();
-
-        if (!question.equals(processed)) {
-            // Mask PII before logging both original and corrected questions
-            String maskedOriginal = piiRedactionService.redactPii(question);
-            String maskedProcessed = piiRedactionService.redactPii(processed);
-            log.info("Question corrected (PII masked): '{}' -> '{}'", maskedOriginal, maskedProcessed);
-        }
-
-        return processed;
+        return processed.trim();
     }
 
     /**

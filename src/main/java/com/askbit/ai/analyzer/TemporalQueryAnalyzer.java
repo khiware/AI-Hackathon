@@ -38,14 +38,8 @@ public class TemporalQueryAnalyzer {
      * Analyze a question for temporal/version context
      */
     public TemporalContext analyzeQuestion(String question) {
-        if (question == null || question.trim().isEmpty()) {
-            return TemporalContext.latest();
-        }
-
-        String normalizedQuestion = question.trim();
-
         // Check for explicit year references
-        Matcher yearMatcher = YEAR_PATTERN.matcher(normalizedQuestion);
+        Matcher yearMatcher = YEAR_PATTERN.matcher(question);
         if (yearMatcher.find()) {
             String yearStr = yearMatcher.group(1);
             if (yearStr == null) {
@@ -67,7 +61,7 @@ public class TemporalQueryAnalyzer {
         }
 
         // Check for temporal keywords indicating older versions
-        Matcher temporalMatcher = TEMPORAL_KEYWORDS.matcher(normalizedQuestion);
+        Matcher temporalMatcher = TEMPORAL_KEYWORDS.matcher(question);
         if (temporalMatcher.find()) {
             log.info("Detected temporal keyword: {}", temporalMatcher.group());
             // If asking about old/previous, but no specific year, we need clarification
@@ -75,7 +69,7 @@ public class TemporalQueryAnalyzer {
         }
 
         // Check for explicit "current" or "latest" keywords
-        Matcher currentMatcher = CURRENT_KEYWORDS.matcher(normalizedQuestion);
+        Matcher currentMatcher = CURRENT_KEYWORDS.matcher(question);
         if (currentMatcher.find()) {
             log.info("Detected current/latest keyword: {}", currentMatcher.group());
             return TemporalContext.latest();
